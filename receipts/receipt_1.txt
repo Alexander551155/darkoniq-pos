@@ -1,0 +1,16 @@
+DARKONIQ POS
+TESTBON / NICHT FISKALISCH
+------------------------------
+Order: #1
+Table: 1
+Date: 2026-06-05 00:54:19
+------------------------------
+1x Espresso  2.20 EUR
+1x Cappuccino  3.30 EUR
+1x Latte  3.50 EUR
+1x Pizza Margherita  8.90 EUR
+1x Americano  2.80 EUR
+------------------------------
+TOTAL: 20.70 EUR
+------------------------------
+Danke!

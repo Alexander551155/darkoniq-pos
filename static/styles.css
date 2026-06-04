@@ -1,0 +1,264 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f7f5;
+    color: #18211d;
+}
+
+.app {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 240px;
+    background: #0f1f18;
+    color: white;
+    padding: 24px;
+}
+
+.sidebar h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #39d98a;
+}
+
+.sidebar p {
+    margin-bottom: 32px;
+    color: #b8c7be;
+}
+
+.nav-button {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 12px;
+    border: none;
+    border-radius: 12px;
+    background: #193227;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.nav-button.active,
+.nav-button:hover {
+    background: #39d98a;
+    color: #0f1f18;
+}
+
+.main {
+    flex: 1;
+    padding: 24px;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+}
+
+.topbar h2 {
+    margin: 0;
+    font-size: 32px;
+}
+
+.topbar p {
+    margin: 6px 0 0;
+    color: #6d7a72;
+}
+
+.top-actions {
+    display: flex;
+    gap: 12px;
+}
+
+#tableSelect,
+#languageSelect {
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #cbd8d0;
+    font-size: 18px;
+    background: white;
+}
+
+.content {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+
+.products-section,
+.cart-section,
+.orders-section {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.categories {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.category-button {
+    border: none;
+    padding: 12px 18px;
+    border-radius: 999px;
+    background: #e8f3ed;
+    color: #183127;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.category-button.active {
+    background: #39d98a;
+}
+
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.product-card {
+    border: 1px solid #e2e8e4;
+    border-radius: 18px;
+    padding: 18px;
+    background: #fbfdfc;
+    cursor: pointer;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.product-card:hover {
+    border-color: #39d98a;
+    transform: translateY(-2px);
+}
+
+.product-card h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.product-card strong {
+    font-size: 22px;
+    color: #159957;
+}
+
+.cart-items {
+    min-height: 220px;
+    border-bottom: 1px solid #e2e8e4;
+    margin-bottom: 16px;
+}
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #eef3ef;
+}
+
+.total-box {
+    display: flex;
+    justify-content: space-between;
+    font-size: 24px;
+    margin-bottom: 18px;
+}
+
+.save-button,
+.print-button,
+.clear-button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.save-button {
+    background: #39d98a;
+    color: #0f1f18;
+}
+
+.print-button {
+    background: #111827;
+    color: white;
+}
+
+.clear-button {
+    background: #f1f1f1;
+    color: #333;
+}
+
+#receiptPreview {
+    background: #0f1f18;
+    color: #39d98a;
+    padding: 14px;
+    border-radius: 12px;
+    min-height: 120px;
+    white-space: pre-wrap;
+    font-size: 13px;
+}
+
+.orders-section {
+    margin-top: 24px;
+}
+
+.order-card {
+    border: 1px solid #e2e8e4;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: #fbfdfc;
+}
+
+@media (max-width: 900px) {
+    .app {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+    }
+
+    .main {
+        padding: 16px;
+    }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .content {
+        grid-template-columns: 1fr;
+    }
+
+    .products-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .top-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    #languageSelect,
+    #tableSelect {
+        width: 100%;
+    }
+}

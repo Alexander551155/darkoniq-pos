@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>DARKONIQ POS</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <h1>DARKONIQ</h1>
+        <p>Restaurant POS</p>
+
+        <button class="nav-button active" onclick="showScreen('pos', this)" data-i18n="cash_register">Касса</button>
+        <button class="nav-button" onclick="showScreen('tables', this)" data-i18n="tables">Столы</button>
+        <button class="nav-button" onclick="showScreen('orders', this)" data-i18n="orders">Заказы</button>
+        <button class="nav-button" onclick="showScreen('reports', this)" data-i18n="reports">Отчёты</button>
+        
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <h2 data-i18n="cash_register">Касса</h2>
+                <p data-i18n="test_version">Тестовая версия / Nicht fiskalisch</p>
+            </div>
+
+            <div class="top-actions">
+                <select id="languageSelect" onchange="changeLanguage()">
+                    <option value="ru">RU</option>
+                    <option value="de">DE</option>
+                    <option value="en">EN</option>
+                </select>
+
+                <select id="tableSelect">
+                    <option value="1" data-i18n="table_1">Стол 1</option>
+                    <option value="2" data-i18n="table_2">Стол 2</option>
+                    <option value="3" data-i18n="table_3">Стол 3</option>
+                    <option value="4" data-i18n="table_4">Стол 4</option>
+                    <option value="5" data-i18n="table_5">Стол 5</option>
+                    <option value="6" data-i18n="table_6">Стол 6</option>
+                </select>
+            </div>
+        </header>
+
+        <section class="content">
+            <div class="products-section">
+                <div id="categories" class="categories"></div>
+                <div id="products" class="products-grid"></div>
+            </div>
+
+            <div class="cart-section">
+                <h2 data-i18n="order">Заказ</h2>
+                <div id="cartItems" class="cart-items"></div>
+
+                <div class="total-box">
+                    <span data-i18n="total">Итого:</span>
+                    <strong id="total">0.00 €</strong>
+                </div>
+
+                <button class="save-button" onclick="saveOrder()" data-i18n="save_order">Сохранить заказ</button>
+                <button class="print-button" onclick="printLastOrder()" data-i18n="print_receipt">Печать чека</button>
+                <button class="clear-button" onclick="clearCart()" data-i18n="clear">Очистить</button>
+
+                <pre id="receiptPreview"></pre>
+            </div>
+        </section>
+
+        <section class="orders-section">
+            <h2 data-i18n="latest_orders">Последние заказы</h2>
+            <div id="ordersList"></div>
+        </section>
+    </main>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

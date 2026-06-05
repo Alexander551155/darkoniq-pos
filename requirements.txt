@@ -1,3 +1,23 @@
-fastapi
-uvicorn
-pydantic
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class CreateTableRequest(BaseModel):
+    seats: int
+    zone: str
+
+@app.post("/api/tables")
+def create_table(table: CreateTableRequest):
+    zone_table_count = get_zone_table_count(table.zone)
+
+    columns = 5
+    rows = 4
+    slot = zone_table_count % (columns * rows)
+    column = slot % columns
+    row = slot // columns
+
+    x = 6 + column * 18
+    y = 10 + row * 20
+
+    # rest of the function continues unchanged...

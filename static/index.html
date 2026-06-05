@@ -2,9 +2,12 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>DARKONIQ POS</title>
-    <link rel="stylesheet" href="/static/styles.css?v=mobile-admin-2">
+    <link rel="stylesheet" href="/static/styles.css?v=waiter-map-7">
 </head>
 <body>
 <section id="loginScreen" class="login-screen">
@@ -45,13 +48,13 @@
                 <h2 id="screenTitle" data-i18n="cash_register">Kasse</h2>
                 <p data-i18n="test_version">Testversion / Nicht fiskalisch</p>
             </div>
-            <nav class="mobile-admin-nav admin-only" aria-label="Admin mobile navigation">
-                <button class="mobile-admin-button active" data-mobile-screen="pos" type="button" onclick="showScreen('pos', document.querySelector('[data-title=&quot;cash_register&quot;]'))">Kasse</button>
-                <button class="mobile-admin-button" data-mobile-screen="tables" type="button" onclick="showScreen('tables', document.querySelector('[data-title=&quot;tables&quot;]'))">Tische</button>
-                <button class="mobile-admin-button" data-mobile-screen="orders" type="button" onclick="showScreen('orders', document.querySelector('[data-title=&quot;orders&quot;]'))">Bestellungen</button>
-                <button class="mobile-admin-button" data-mobile-screen="reports" type="button" onclick="showScreen('reports', document.querySelector('[data-title=&quot;reports&quot;]'))">Berichte</button>
-                <button class="mobile-admin-button" data-mobile-screen="users" type="button" onclick="showScreen('users', document.querySelector('[data-title=&quot;users&quot;]'))">Benutzer</button>
-                <button class="mobile-admin-button logout-mobile-button" type="button" onclick="logout()">Logout</button>
+            <nav class="mobile-role-nav" aria-label="Mobile navigation">
+                <button class="mobile-role-button active" data-mobile-screen="pos" type="button" onclick="showScreen('pos', document.querySelector('[data-title=&quot;cash_register&quot;]'))">Kasse</button>
+                <button class="mobile-role-button" data-mobile-screen="tables" type="button" onclick="showScreen('tables', document.querySelector('[data-title=&quot;tables&quot;]'))">Tische</button>
+                <button class="mobile-role-button admin-only" data-mobile-screen="orders" type="button" onclick="showScreen('orders', document.querySelector('[data-title=&quot;orders&quot;]'))">Bestellungen</button>
+                <button class="mobile-role-button admin-only" data-mobile-screen="reports" type="button" onclick="showScreen('reports', document.querySelector('[data-title=&quot;reports&quot;]'))">Berichte</button>
+                <button class="mobile-role-button admin-only" data-mobile-screen="users" type="button" onclick="showScreen('users', document.querySelector('[data-title=&quot;users&quot;]'))">Benutzer</button>
+                <button class="mobile-role-button logout-mobile-button" type="button" onclick="logout()">Logout</button>
             </nav>
 
         </header>
@@ -141,6 +144,13 @@
                     </div>
                     <div class="floor-plan" id="floorPlan">
                         <div id="activeZoneBadge" class="floor-zone zone-main">Innenbereich</div>
+                        <div class="restaurant-fixtures" aria-hidden="true">
+                            <div class="restaurant-fixture fixture-bar">Bar</div>
+                            <div class="restaurant-fixture fixture-kitchen">Küche</div>
+                            <div class="restaurant-fixture fixture-window">Fensterfront</div>
+                            <div class="restaurant-fixture fixture-entry">Eingang</div>
+                            <div class="restaurant-fixture fixture-lounge">Lounge</div>
+                        </div>
                         <div id="tablesGrid" class="tables-layer"></div>
                     </div>
                     <div class="floor-help">
@@ -148,10 +158,10 @@
                         <span data-i18n="drag_hint">Tisch halten und ziehen. Tippen öffnet die Kasse. Löschen geht nur ohne offene Bestellung.</span>
                     </div>
                 </div>
-                <aside class="table-manager-panel admin-only">
+                <aside class="table-manager-panel">
                     <div class="table-manager-header">
                         <div>
-                            <strong data-i18n="table_manager">Tische verwalten</strong>
+                            <strong data-i18n="table_manager">Übersicht Tische</strong>
                             <span data-i18n="table_manager_hint">Antippen zeigt den Tisch auf der Karte</span>
                         </div>
                         <em id="tableManagerCount">0</em>
@@ -276,6 +286,6 @@
     <button class="mobile-nav-button" onclick="logout()">Logout</button>
 </nav>
 
-<script src="/static/app.js?v=mobile-admin-2"></script>
+<script src="/static/app.js?v=waiter-map-7"></script>
 </body>
 </html>

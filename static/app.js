@@ -132,7 +132,7 @@ const translations = {
         delete_table: "Löschen",
         delete_confirm: "Diesen Tisch löschen?",
         delete_blocked: "Tisch kann nicht gelöscht werden: Es gibt offene Bestellungen.",
-        table_manager: "Tische verwalten",
+        table_manager: "Übersicht Tische",
         table_manager_hint: "Antippen zeigt den Tisch auf der Karte",
         show_on_plan: "Anzeigen",
         no_tables_in_zone: "Keine Tische in diesem Bereich",
@@ -944,10 +944,14 @@ function renderTables() {
         card.dataset.tableNumber = String(table.table_number);
         card.innerHTML = `
             <button class="delete-table-button admin-only" type="button" title="${t("delete_table")}">×</button>
+            <strong>T${table.table_number}</strong>
+            <span class="table-seat-count" title="${table.seats} ${t("seats")}">
+                <svg class="table-seat-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm10 0a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM3.5 19c.7-3.1 2.5-5 5-5s4.3 1.9 5 5H3.5Zm7 0c.6-2.5 2-4.1 4-4.7.7-.2 1.5-.3 2.3-.3 2.5 0 4.3 1.9 5 5H10.5Z"></path>
+                </svg>
+                ${table.seats}
+            </span>
             <span class="table-status-dot"></span>
-            <strong>${t("table")} ${table.table_number}</strong>
-            <small>${table.seats} ${t("seats")} · ${table.zone}</small>
-            <em>${t(table.status)} · ${money(table.total)}</em>
         `;
         const deleteButton = card.querySelector(".delete-table-button");
         deleteButton.classList.toggle("hidden", !isAdmin());
@@ -981,12 +985,12 @@ function renderTableManager() {
     }
 
     list.innerHTML = zoneTables.map(table => `
-        <div class="table-manager-row ${table.status}">
+        <div class="table-manager-row ${table.status} ${isAdmin() ? "" : "readonly"}">
             <button class="table-manager-focus" type="button" onclick="focusTableOnPlan(${table.id})">
                 <strong>${t("table")} ${table.table_number}</strong>
                 <span>${table.seats} ${t("seats")} · ${t(table.status)} · y ${Number(table.y).toFixed(0)}</span>
             </button>
-            <button class="delete-table-button list-delete-button" type="button" onclick="deleteTableById(${table.id})" title="${t("delete_table")}">×</button>
+            ${isAdmin() ? `<button class="delete-table-button list-delete-button" type="button" onclick="deleteTableById(${table.id})" title="${t("delete_table")}">×</button>` : ""}
         </div>
     `).join("");
 }
@@ -1016,6 +1020,9 @@ function focusTableOnPlan(tableId) {
         top: Math.max(0, card.offsetTop - 24),
         behavior: "smooth"
     });
+    currentServiceZone = table.zone;
+    syncServiceZoneButtons();
+    selectTable(table.table_number);
     card.classList.add("spotlight");
     window.setTimeout(() => card.classList.remove("spotlight"), 1200);
 }
@@ -1382,7 +1389,7 @@ function showScreen(screenName, button) {
 
     document.querySelectorAll(".nav-button").forEach(navButton => navButton.classList.remove("active"));
     if (button) button.classList.add("active");
-    document.querySelectorAll(".mobile-nav-button, .mobile-admin-button").forEach(navButton => navButton.classList.remove("active"));
+    document.querySelectorAll(".mobile-nav-button, .mobile-role-button").forEach(navButton => navButton.classList.remove("active"));
     document.querySelectorAll(`[data-mobile-screen="${screenName}"]`).forEach(navButton => navButton.classList.add("active"));
 
     document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active-screen"));

@@ -20,21 +20,31 @@
     box-sizing: border-box;
 }
 
+html {
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+}
+
 body {
     margin: 0;
     font-family: Arial, sans-serif;
     background: radial-gradient(circle at top left, #ffffff 0, var(--bg) 34%, #e4ebe6 100%);
     color: var(--ink);
+    min-height: 100%;
+    overscroll-behavior: none;
 }
 
 button,
 select,
-input {
+input,
+textarea {
     font: inherit;
 }
 
 button {
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .hidden {
@@ -196,7 +206,7 @@ button {
     color: var(--muted);
 }
 
-.mobile-admin-nav {
+.mobile-role-nav {
     display: none;
 }
 
@@ -844,18 +854,20 @@ button {
     border-radius: 26px;
     overflow: auto;
     background:
-        linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px) 0 0 / 34px 34px,
-        linear-gradient(0deg, rgba(255,255,255,0.15) 1px, transparent 1px) 0 0 / 34px 34px,
-        linear-gradient(135deg, #b99168, #d6b98f 45%, #9d744d);
+        radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.35), transparent 16%),
+        linear-gradient(90deg, rgba(255,255,255,0.14) 1px, transparent 1px) 0 0 / 34px 34px,
+        linear-gradient(0deg, rgba(255,255,255,0.14) 1px, transparent 1px) 0 0 / 34px 34px,
+        linear-gradient(135deg, #c79d70, #debf92 45%, #9b6f49);
     border: 1px solid rgba(77, 53, 31, 0.15);
     touch-action: pan-y;
 }
 
 .terrace-plan {
     background:
+        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.28), transparent 18%),
         linear-gradient(90deg, rgba(255,255,255,0.14) 1px, transparent 1px) 0 0 / 34px 34px,
         linear-gradient(0deg, rgba(255,255,255,0.14) 1px, transparent 1px) 0 0 / 34px 34px,
-        linear-gradient(135deg, #9fbf91, #d4c08c 48%, #9b7a52);
+        linear-gradient(135deg, #87ad78, #d3bd84 48%, #9c744d);
 }
 
 .floor-plan::after {
@@ -869,7 +881,7 @@ button {
 
 .floor-zone {
     position: absolute;
-    z-index: 1;
+    z-index: 4;
     padding: 8px 12px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.78);
@@ -889,29 +901,115 @@ button {
     bottom: 22px;
 }
 
+.restaurant-fixtures {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.restaurant-fixture {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    border: 1px solid rgba(67, 45, 25, 0.18);
+    background: rgba(255, 255, 255, 0.28);
+    color: rgba(58, 38, 20, 0.58);
+    font-size: 12px;
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.fixture-bar {
+    left: 4%;
+    top: 8%;
+    width: 16%;
+    height: 38%;
+    background: linear-gradient(160deg, rgba(60, 38, 22, 0.42), rgba(255, 255, 255, 0.20));
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.fixture-kitchen {
+    right: 4%;
+    top: 7%;
+    width: 18%;
+    height: 18%;
+}
+
+.fixture-window {
+    left: 25%;
+    top: 4%;
+    width: 46%;
+    height: 7%;
+    border-radius: 999px;
+    background: rgba(219, 234, 254, 0.32);
+    color: rgba(30, 64, 175, 0.54);
+}
+
+.fixture-entry {
+    right: 6%;
+    top: 31%;
+    width: 15%;
+    height: 10%;
+}
+
+.fixture-lounge {
+    left: 25%;
+    bottom: 7%;
+    width: 48%;
+    height: 13%;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.terrace-plan .fixture-bar,
+.terrace-plan .fixture-kitchen,
+.terrace-plan .fixture-lounge {
+    opacity: 0.28;
+}
+
+.terrace-plan .fixture-window {
+    top: 5%;
+    height: 11%;
+    background: rgba(219, 234, 254, 0.38);
+}
+
+.terrace-plan .fixture-entry {
+    right: 5%;
+    top: auto;
+    bottom: 6%;
+    background: rgba(255, 255, 255, 0.24);
+}
+
 .tables-layer {
     position: relative;
     min-height: 100%;
-    z-index: 2;
+    z-index: 3;
 }
 
 .floor-table {
     position: absolute;
-    width: 138px;
-    min-height: 112px;
+    width: 112px;
+    min-height: 84px;
     transform: translate(0, 0);
     border: 2px solid transparent;
-    border-radius: 18px;
-    padding: 14px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 16px 26px rgba(51, 36, 23, 0.18);
+    border-radius: 22px;
+    padding: 13px 12px 12px;
+    background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.82)),
+        linear-gradient(145deg, #ffffff, #edf7f0);
+    box-shadow: 0 16px 30px rgba(51, 36, 23, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.86);
     text-align: left;
     cursor: grab;
     user-select: none;
     touch-action: none;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: 1fr auto;
+    align-items: end;
+    gap: 8px;
 }
 
 body[data-role="waiter"] .floor-table {
@@ -920,10 +1018,10 @@ body[data-role="waiter"] .floor-table {
 
 .delete-table-button {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
+    top: 7px;
+    right: 7px;
+    width: 24px;
+    height: 24px;
     border: none;
     border-radius: 999px;
     background: #fee2e2;
@@ -939,12 +1037,37 @@ body[data-role="waiter"] .floor-table {
 }
 
 .floor-table strong {
-    font-size: 18px;
+    grid-column: 1 / -1;
+    letter-spacing: -0.08em;
+    font-size: 28px;
+    line-height: 0.95;
+    font-weight: 950;
 }
 
 .floor-table em {
     font-style: normal;
     font-weight: 800;
+}
+
+.table-seat-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    min-height: 24px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.06);
+    color: #253129;
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.table-seat-icon {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    opacity: 0.78;
 }
 
 .floor-table.free {
@@ -953,6 +1076,9 @@ body[data-role="waiter"] .floor-table {
 
 .floor-table.busy {
     border-color: rgba(239, 68, 68, 0.55);
+    background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.96), rgba(255, 247, 247, 0.86)),
+        linear-gradient(145deg, #ffffff, #fff1f2);
 }
 
 .floor-table.dragging {
@@ -969,6 +1095,8 @@ body[data-role="waiter"] .floor-table {
 }
 
 .table-status-dot {
+    justify-self: end;
+    align-self: center;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -1058,6 +1186,10 @@ body[data-role="waiter"] .floor-table {
     border-radius: 18px;
     background: white;
     border: 1px solid rgba(226, 232, 228, 0.9);
+}
+
+.table-manager-row.readonly {
+    grid-template-columns: 1fr;
 }
 
 .table-manager-row.busy {
@@ -1350,16 +1482,18 @@ body[data-role="waiter"] .floor-table {
 
     body {
         background: #f3f6f4;
-        padding-bottom: calc(82px + env(safe-area-inset-bottom));
-    }
-
-    body[data-role="admin"] {
-        padding-bottom: calc(132px + env(safe-area-inset-bottom));
+        padding-bottom: env(safe-area-inset-bottom);
     }
 
     .login-card {
         border-radius: 24px;
         padding: 22px;
+    }
+
+    input,
+    select,
+    textarea {
+        font-size: 16px;
     }
 
     .app {
@@ -1373,52 +1507,48 @@ body[data-role="waiter"] .floor-table {
     }
 
     .main {
-        padding: 12px 12px calc(106px + env(safe-area-inset-bottom));
+        padding: 4px 4px calc(10px + env(safe-area-inset-bottom));
     }
 
     body[data-role="admin"] .main {
-        padding-bottom: calc(150px + env(safe-area-inset-bottom));
+        min-height: 100svh;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
     }
 
     .topbar {
         position: sticky;
         top: 0;
         z-index: 20;
-        margin: -12px -12px 12px;
-        padding: calc(10px + env(safe-area-inset-top)) 12px 12px;
-        border-radius: 0 0 22px 22px;
-        background: rgba(243, 246, 244, 0.94);
+        margin: -4px -4px 4px;
+        padding: calc(3px + env(safe-area-inset-top)) 5px 5px;
+        border-radius: 0 0 12px 12px;
+        background: rgba(243, 246, 244, 0.97);
         backdrop-filter: blur(16px);
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-        flex-direction: row;
-        align-items: center;
-    }
-
-    body[data-role="admin"] .topbar {
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
         align-items: stretch;
         flex-direction: column;
     }
 
-    body[data-role="admin"] .mobile-admin-nav {
+    .mobile-role-nav {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
-        margin-top: 10px;
+        gap: 4px;
+        margin-top: 4px;
     }
 
-    .mobile-admin-button {
-        min-height: 40px;
+    .mobile-role-button {
+        min-height: 30px;
         border: none;
-        border-radius: 14px;
-        padding: 8px 6px;
+        border-radius: 10px;
+        padding: 5px 4px;
         background: #e9f1ed;
         color: #52615a;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 10.5px;
         font-weight: 900;
     }
 
-    .mobile-admin-button.active {
+    .mobile-role-button.active {
         background: var(--green-2);
         color: white;
     }
@@ -1429,7 +1559,8 @@ body[data-role="waiter"] .floor-table {
     }
 
     .topbar h2 {
-        font-size: 25px;
+        font-size: 16px;
+        line-height: 1;
     }
 
     .topbar p {
@@ -1451,29 +1582,34 @@ body[data-role="waiter"] .floor-table {
 
     .service-panel {
         position: sticky;
-        top: 72px;
+        top: 52px;
         z-index: 14;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin: -2px -2px 10px;
-        padding: 8px 0 10px;
+        gap: 5px;
+        margin: -1px -1px 6px;
+        padding: 5px 0 6px;
         background: rgba(243, 246, 244, 0.95);
         backdrop-filter: blur(16px);
     }
 
     body[data-role="admin"] .service-panel {
-        top: 142px;
+        top: 94px;
     }
 
     .service-status-card {
-        min-height: 86px;
-        padding: 12px;
-        border-radius: 18px;
+        min-height: 60px;
+        padding: 8px;
+        border-radius: 14px;
     }
 
     .service-status-card strong {
-        font-size: 21px;
+        font-size: 17px;
+    }
+
+    .service-status-card span,
+    .service-status-card small {
+        font-size: 10px;
     }
 
     .service-table-picker,
@@ -1484,12 +1620,14 @@ body[data-role="waiter"] .floor-table {
     }
 
     .service-table-picker {
-        padding: 9px;
-        gap: 8px;
+        padding: 6px;
+        gap: 5px;
     }
 
     .service-zone-button {
-        min-height: 46px;
+        min-height: 36px;
+        border-radius: 12px;
+        font-size: 12px;
     }
 
     .service-table-picker #tableSelect {
@@ -1497,18 +1635,18 @@ body[data-role="waiter"] .floor-table {
     }
 
     .quick-tables {
-        padding: 8px;
+        padding: 5px;
     }
 
     .quick-table-chip {
-        flex-basis: 78px;
-        min-height: 70px;
-        border-radius: 15px;
-        padding: 8px;
+        flex-basis: 62px;
+        min-height: 58px;
+        border-radius: 12px;
+        padding: 6px;
     }
 
     .quick-table-chip strong {
-        font-size: 20px;
+        font-size: 17px;
     }
 
     .content {
@@ -1527,43 +1665,53 @@ body[data-role="waiter"] .floor-table {
     .products-section,
     .floor-shell,
     .report-table-wrap {
-        border-radius: 22px;
-        padding: 12px;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        border-radius: 16px;
+        padding: 8px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
     }
 
     .live-service-overview {
-        margin: 0 0 10px;
-        padding: 10px;
-        border-radius: 18px;
+        margin: 0 0 6px;
+        padding: 7px;
+        border-radius: 14px;
     }
 
     .live-service-header {
         align-items: flex-start;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
+        gap: 6px;
+    }
+
+    .live-service-header strong {
+        font-size: 13px;
+    }
+
+    .live-service-header span {
+        font-size: 10px;
     }
 
     .live-service-header .compact {
         width: auto;
-        min-height: 38px;
-        padding: 9px 10px;
+        min-height: 30px;
+        padding: 6px 8px;
+        font-size: 11px;
     }
 
     .live-table-card {
-        flex-basis: 78px;
-        min-height: 72px;
-        padding: 8px;
-        border-radius: 14px;
+        flex-basis: 62px;
+        min-height: 60px;
+        padding: 6px;
+        border-radius: 12px;
     }
 
     .live-table-card strong {
-        font-size: 19px;
+        font-size: 16px;
     }
 
     .categories {
         position: static;
-        margin: -2px -12px 12px;
-        padding: 8px 12px;
+        margin: -1px -6px 7px;
+        padding: 5px 6px;
         overflow-x: auto;
         flex-wrap: nowrap;
         background: rgba(255, 255, 255, 0.93);
@@ -1577,33 +1725,33 @@ body[data-role="waiter"] .floor-table {
 
     .category-button {
         flex: 0 0 auto;
-        min-height: 44px;
-        padding: 11px 16px;
-        font-size: 14px;
+        min-height: 34px;
+        padding: 8px 12px;
+        font-size: 12px;
         box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.08);
     }
 
     .products-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
+        gap: 6px;
     }
 
     .product-card,
     .menu-tile {
-        min-height: 92px;
-        padding: 10px;
-        border-radius: 15px;
+        min-height: 78px;
+        padding: 8px;
+        border-radius: 13px;
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
     }
 
     .product-card::before {
-        height: 38px;
-        border-radius: 14px;
-        margin-bottom: 8px;
+        height: 28px;
+        border-radius: 11px;
+        margin-bottom: 6px;
     }
 
     .product-card h3 {
-        font-size: 13px;
+        font-size: 12px;
         line-height: 1.2;
     }
 
@@ -1613,8 +1761,8 @@ body[data-role="waiter"] .floor-table {
     }
 
     .product-price {
-        padding: 6px 8px;
-        font-size: 13px;
+        padding: 5px 7px;
+        font-size: 12px;
         font-weight: 950;
     }
 
@@ -1624,10 +1772,10 @@ body[data-role="waiter"] .floor-table {
         right: 0;
         bottom: 0;
         z-index: 42;
-        max-height: min(82svh, 720px);
+        max-height: min(72svh, 640px);
         overflow: auto;
-        padding: 18px 14px calc(18px + env(safe-area-inset-bottom));
-        border-radius: 26px 26px 0 0;
+        padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+        border-radius: 20px 20px 0 0;
         transform: translateY(108%);
         transition: transform 0.22s ease;
         box-shadow: 0 -22px 50px rgba(0, 0, 0, 0.24);
@@ -1641,14 +1789,14 @@ body[data-role="waiter"] .floor-table {
         display: grid;
         place-items: center;
         position: absolute;
-        top: 12px;
-        right: 12px;
-        width: 38px;
-        height: 38px;
+        top: 8px;
+        right: 8px;
+        width: 34px;
+        height: 34px;
         border: none;
         border-radius: 999px;
         background: #eef2f0;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 900;
     }
 
@@ -1657,16 +1805,16 @@ body[data-role="waiter"] .floor-table {
     }
 
     .cart-items {
-        min-height: 160px;
-        max-height: 38svh;
+        min-height: 120px;
+        max-height: 32svh;
         overflow: auto;
     }
 
     .save-button,
     .print-button,
     .clear-button {
-        min-height: 54px;
-        font-size: 16px;
+        min-height: 44px;
+        font-size: 14px;
     }
 
     .cart-backdrop {
@@ -1682,18 +1830,18 @@ body[data-role="waiter"] .floor-table {
 
     .mobile-cart-button {
         display: grid;
-        grid-template-columns: 38px 1fr auto;
+        grid-template-columns: 30px 1fr auto;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         position: fixed;
-        left: 12px;
-        right: 12px;
-        bottom: calc(74px + env(safe-area-inset-bottom));
+        left: 8px;
+        right: 8px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
         z-index: 34;
-        min-height: 58px;
+        min-height: 46px;
         border: none;
-        border-radius: 20px;
-        padding: 10px 14px;
+        border-radius: 16px;
+        padding: 7px 10px;
         background: #101915;
         color: white;
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
@@ -1703,15 +1851,11 @@ body[data-role="waiter"] .floor-table {
         display: none;
     }
 
-    body[data-role="admin"] .mobile-cart-button {
-        bottom: calc(122px + env(safe-area-inset-bottom));
-    }
-
     .mobile-cart-button span {
         display: grid;
         place-items: center;
-        width: 34px;
-        height: 34px;
+        width: 28px;
+        height: 28px;
         border-radius: 999px;
         background: var(--green-2);
         font-weight: 950;
@@ -1719,18 +1863,18 @@ body[data-role="waiter"] .floor-table {
 
     .mobile-cart-button strong {
         text-align: left;
-        font-size: 18px;
+        font-size: 15px;
     }
 
     .mobile-cart-button em {
         font-style: normal;
         color: #b6c2bc;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 800;
     }
 
     .mobile-nav {
-        display: grid;
+        display: none;
         grid-template-columns: repeat(5, 1fr);
         gap: 6px;
         position: fixed;
@@ -1745,29 +1889,18 @@ body[data-role="waiter"] .floor-table {
         backdrop-filter: blur(18px);
     }
 
-    body[data-role="admin"] .mobile-nav {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-    body[data-role="admin"] .mobile-nav-button {
-        min-height: 42px;
-    }
-
-    body[data-role="waiter"] .mobile-nav {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
     .section-header {
-        margin-bottom: 12px;
-        gap: 10px;
+        margin-bottom: 6px;
+        gap: 6px;
     }
 
     .section-header h2 {
-        font-size: 25px;
+        font-size: 19px;
+        line-height: 1.05;
     }
 
     .section-header p {
-        font-size: 13px;
+        font-size: 11px;
     }
 
     .floor-shell {
@@ -1784,16 +1917,21 @@ body[data-role="waiter"] .floor-table {
 
     .zone-switcher {
         position: sticky;
-        top: 82px;
+        top: 54px;
         z-index: 11;
-        border-radius: 20px;
-        padding: 6px;
+        border-radius: 14px;
+        padding: 4px;
+    }
+
+    body[data-role="admin"] .zone-switcher {
+        top: 96px;
     }
 
     .zone-tab {
-        min-height: 50px;
-        font-size: 16px;
-        padding: 12px 10px;
+        min-height: 36px;
+        font-size: 13px;
+        padding: 8px 8px;
+        border-radius: 11px;
     }
 
     .floor-board-header {
@@ -1801,24 +1939,29 @@ body[data-role="waiter"] .floor-table {
     }
 
     .floor-board-header .compact {
-        min-height: 48px;
+        min-height: 38px;
     }
 
     .floor-plan {
-        height: calc(100svh - 265px);
-        min-height: 520px;
-        border-radius: 22px;
+        height: calc(100svh - 170px);
+        min-height: 460px;
+        border-radius: 16px;
+    }
+
+    body[data-role="admin"] .floor-plan {
+        height: calc(100svh - 215px);
     }
 
     .floor-table {
-        width: 116px;
-        min-height: 100px;
-        padding: 12px;
+        width: 86px;
+        min-height: 66px;
+        padding: 9px 8px 8px;
         border-radius: 17px;
+        gap: 5px;
     }
 
     .floor-table strong {
-        font-size: 16px;
+        font-size: 22px;
     }
 
     .floor-table small,
@@ -1826,9 +1969,21 @@ body[data-role="waiter"] .floor-table {
         font-size: 12px;
     }
 
+    .table-seat-count {
+        min-height: 20px;
+        padding: 3px 6px;
+        font-size: 11px;
+    }
+
+    .table-seat-icon {
+        width: 13px;
+        height: 13px;
+    }
+
     .delete-table-button {
-        width: 30px;
-        height: 30px;
+        width: 22px;
+        height: 22px;
+        font-size: 15px;
     }
 
     .floor-help {

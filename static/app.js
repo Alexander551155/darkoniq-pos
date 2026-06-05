@@ -954,7 +954,12 @@ function syncTerminalTableGrid(layer, floorPlan, tableCount) {
     const count = Math.max(1, tableCount);
     const width = Math.max(1, floorPlan.clientWidth || window.innerWidth || 1);
     const height = Math.max(1, floorPlan.clientHeight || window.innerHeight || 1);
-    const stageRatio = width / height;
+    const layerStyle = window.getComputedStyle(layer);
+    const horizontalPadding = parseFloat(layerStyle.paddingLeft) + parseFloat(layerStyle.paddingRight);
+    const verticalPadding = parseFloat(layerStyle.paddingTop) + parseFloat(layerStyle.paddingBottom);
+    const gridWidth = Math.max(1, width - horizontalPadding);
+    const gridHeight = Math.max(1, height - verticalPadding);
+    const stageRatio = gridWidth / gridHeight;
     const targetCellRatio = stageRatio >= 1.25 ? 1.55 : 1.08;
     let columns = 1;
     let rows = count;
@@ -963,7 +968,7 @@ function syncTerminalTableGrid(layer, floorPlan, tableCount) {
     for (let candidateColumns = 1; candidateColumns <= count; candidateColumns += 1) {
         const candidateRows = Math.ceil(count / candidateColumns);
         const emptySlots = candidateColumns * candidateRows - count;
-        const cellRatio = (width / candidateColumns) / (height / candidateRows);
+        const cellRatio = (gridWidth / candidateColumns) / (gridHeight / candidateRows);
         const ratioScore = Math.abs(Math.log(cellRatio / targetCellRatio));
         const emptyScore = emptySlots / Math.max(1, count) * 0.35;
         const score = ratioScore + emptyScore;

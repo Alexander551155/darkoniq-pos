@@ -68,9 +68,15 @@ def init_db():
             product_name TEXT NOT NULL,
             quantity INTEGER NOT NULL,
             price REAL NOT NULL,
+            note TEXT,
             FOREIGN KEY(order_id) REFERENCES orders(id)
         )
     """)
+
+    cursor.execute("PRAGMA table_info(order_items)")
+    order_item_columns = {row["name"] for row in cursor.fetchall()}
+    if "note" not in order_item_columns:
+        cursor.execute("ALTER TABLE order_items ADD COLUMN note TEXT")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS restaurant_tables (
@@ -92,6 +98,11 @@ def init_db():
             display_name TEXT NOT NULL
         )
     """)
+
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = {row["name"] for row in cursor.fetchall()}
+    if "password_plain" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN password_plain TEXT")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
@@ -126,6 +137,26 @@ def init_db():
             products
         )
 
+    menu_products = [
+        ("Schnitzel Wiener Art", "Food", 14.90),
+        ("Rumpsteak", "Food", 24.90),
+        ("Bratkartoffeln Extra", "Food", 4.20),
+        ("Pommes Frites", "Food", 3.90),
+        ("Hausgemachte Limonade", "Drinks", 4.50),
+        ("Apfelschorle", "Drinks", 3.40),
+        ("Pils", "Drinks", 4.20),
+        ("Weisswein", "Drinks", 5.80),
+        ("Rotwein", "Drinks", 5.80),
+    ]
+    for name, category, price in menu_products:
+        cursor.execute("SELECT id FROM products WHERE name = ?", (name,))
+        if cursor.fetchone():
+            continue
+        cursor.execute(
+            "INSERT INTO products (name, category, price) VALUES (?, ?, ?)",
+            (name, category, price)
+        )
+
     cursor.execute("SELECT COUNT(*) FROM restaurant_tables")
     tables_count = cursor.fetchone()[0]
 
@@ -152,9 +183,18 @@ def init_db():
             default_tables
         )
 
+    cursor.execute(
+        """
+        UPDATE users
+        SET username = ?, password_hash = ?, password_plain = ?, display_name = ?
+        WHERE username = ?
+        """,
+        ("alexadmin", hash_password("alexadmin2026"), "alexadmin2026", "Alex Admin", "admin")
+    )
+
     seed_users = [
-        ("admin", "admin123", "admin", "Admin"),
-        ("waiter", "waiter123", "waiter", "Service"),
+        ("alexadmin", "alexadmin2026", "admin", "Alex Admin"),
+        ("waiter", "waiter2026", "waiter", "Service"),
     ]
     for username, password, role, display_name in seed_users:
         cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
@@ -162,11 +202,22 @@ def init_db():
             continue
         cursor.execute(
             """
-            INSERT INTO users (username, password_hash, role, display_name)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users (username, password_hash, password_plain, role, display_name)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (username, hash_password(password), role, display_name)
+            (username, hash_password(password), password, role, display_name)
         )
+
+    cursor.execute("""
+        UPDATE users
+        SET password_plain = ?
+        WHERE username = ? AND (password_plain IS NULL OR password_plain = '')
+    """, ("alexadmin2026", "alexadmin"))
+    cursor.execute("""
+        UPDATE users
+        SET password_plain = ?
+        WHERE username = ? AND (password_plain IS NULL OR password_plain = '')
+    """, ("waiter2026", "waiter"))
 
     conn.commit()
     conn.close()
@@ -176,6 +227,7 @@ class OrderItem(BaseModel):
     product_name: str = Field(min_length=1)
     quantity: int = Field(gt=0)
     price: float = Field(ge=0)
+    note: str | None = Field(default="", max_length=500)
 
 
 class CreateOrderRequest(BaseModel):
@@ -190,6 +242,13 @@ class UpdateOrderStatusRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1)
     password: str = Field(min_length=1)
+
+
+class CreateUserRequest(BaseModel):
+    username: str = Field(min_length=3)
+    password: str = Field(min_length=6)
+    role: str
+    display_name: str = Field(min_length=1)
 
 
 class CreateTableRequest(BaseModel):
@@ -295,6 +354,86 @@ def logout(authorization: str | None = Header(default=None)):
     return {"message": "Logged out"}
 
 
+@app.get("/api/users")
+def get_users(user: dict = Depends(require_admin)):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, username, password_plain, role, display_name
+        FROM users
+        ORDER BY role, username
+    """)
+    users = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return users
+
+
+@app.post("/api/users")
+def create_user(request: CreateUserRequest, user: dict = Depends(require_admin)):
+    if request.role not in ROLES:
+        raise HTTPException(status_code=400, detail="Invalid role")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO users (username, password_hash, password_plain, role, display_name)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                request.username,
+                hash_password(request.password),
+                request.password,
+                request.role,
+                request.display_name,
+            )
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=409, detail="Username already exists")
+
+    user_id = cursor.lastrowid
+    conn.close()
+    return {
+        "id": user_id,
+        "username": request.username,
+        "password_plain": request.password,
+        "role": request.role,
+        "display_name": request.display_name,
+    }
+
+
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int, user: dict = Depends(require_admin)):
+    if user_id == user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, role FROM users WHERE id = ?", (user_id,))
+    target = cursor.fetchone()
+
+    if not target:
+        conn.close()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target["role"] == "admin":
+        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+        admin_count = cursor.fetchone()[0]
+        if admin_count <= 1:
+            conn.close()
+            raise HTTPException(status_code=409, detail="Cannot delete last admin")
+
+    cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+    return {"message": "User deleted", "user_id": user_id}
+
+
 @app.get("/api/products")
 def get_products(user: dict = Depends(get_current_user)):
     conn = get_connection()
@@ -319,7 +458,7 @@ def fetch_order(cursor, order_id: int):
         return None
 
     cursor.execute("""
-        SELECT product_name, quantity, price
+        SELECT product_name, quantity, price, COALESCE(note, '') AS note
         FROM order_items
         WHERE order_id = ?
         ORDER BY id
@@ -350,10 +489,10 @@ def create_order(order: CreateOrderRequest, user: dict = Depends(get_current_use
         cursor.execute(
             """
             INSERT INTO order_items
-            (order_id, product_name, quantity, price)
-            VALUES (?, ?, ?, ?)
+            (order_id, product_name, quantity, price, note)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (order_id, item.product_name, item.quantity, item.price)
+            (order_id, item.product_name, item.quantity, item.price, item.note or "")
         )
 
     conn.commit()
@@ -435,7 +574,11 @@ def get_tables(user: dict = Depends(get_current_user)):
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT table_number, COUNT(*) AS open_orders, COALESCE(SUM(total), 0) AS total
+        SELECT
+            table_number,
+            COUNT(*) AS open_orders,
+            COALESCE(SUM(total), 0) AS total,
+            MIN(created_at) AS first_order_at
         FROM orders
         WHERE status = 'open'
         GROUP BY table_number
@@ -462,6 +605,7 @@ def get_tables(user: dict = Depends(get_current_user)):
             "status": "busy" if row else "free",
             "open_orders": row["open_orders"] if row else 0,
             "total": round(row["total"], 2) if row else 0,
+            "first_order_at": row["first_order_at"] if row else None,
         })
 
     conn.close()
@@ -660,6 +804,8 @@ def print_receipt(order_id: int, user: dict = Depends(get_current_user)):
     for item in order["items"]:
         line_total = item["quantity"] * item["price"]
         receipt_text.append(f"{item['quantity']}x {item['product_name']}  {line_total:.2f} EUR")
+        if item.get("note"):
+            receipt_text.append(f"  Kueche: {item['note']}")
 
     receipt_text.append("------------------------------")
     receipt_text.append(f"TOTAL: {order['total']:.2f} EUR")

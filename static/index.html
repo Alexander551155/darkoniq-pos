@@ -15,14 +15,13 @@
         </div>
         <label>
             Benutzer
-            <input id="loginUsername" type="text" autocomplete="username" value="admin" required>
+            <input id="loginUsername" type="text" autocomplete="username" required>
         </label>
         <label>
             Passwort
-            <input id="loginPassword" type="password" autocomplete="current-password" value="admin123" required>
+            <input id="loginPassword" type="password" autocomplete="current-password" required>
         </label>
         <button class="save-button" type="submit">Einloggen</button>
-        <small>Admin: admin/admin123 · Service: waiter/waiter123</small>
         <div id="loginError" class="login-error"></div>
     </form>
 </section>
@@ -36,6 +35,7 @@
         <button class="nav-button" onclick="showScreen('tables', this)" data-title="tables" data-i18n="tables">Tische</button>
         <button class="nav-button admin-only" onclick="showScreen('orders', this)" data-title="orders" data-i18n="orders">Bestellungen</button>
         <button class="nav-button admin-only" onclick="showScreen('reports', this)" data-title="reports" data-i18n="reports">Berichte</button>
+        <button class="nav-button admin-only" onclick="showScreen('users', this)" data-title="users" data-i18n="users">Benutzer</button>
         <button class="nav-button logout-button" onclick="logout()">Logout</button>
     </aside>
 
@@ -46,19 +46,51 @@
                 <p data-i18n="test_version">Testversion / Nicht fiskalisch</p>
             </div>
 
-            <div class="top-actions">
-                <select id="tableSelect"></select>
-            </div>
         </header>
 
         <section id="posScreen" class="screen active-screen">
+            <div class="service-panel">
+                <div class="service-status-card">
+                    <span data-i18n="active_table">Aktiver Tisch</span>
+                    <strong id="activeTableLabel">Tisch 1</strong>
+                    <small id="activeTableStatus">Frei</small>
+                </div>
+                <div class="service-status-card">
+                    <span data-i18n="current_order">Aktuelle Bestellung</span>
+                    <strong id="serviceCartTotal">0.00 €</strong>
+                    <small id="serviceCartCount">0 Positionen</small>
+                </div>
+                <div class="service-table-picker">
+                    <div class="service-zone-tabs">
+                        <button class="service-zone-button active" type="button" data-service-zone="Innenbereich" onclick="switchServiceZone('Innenbereich', this)" data-i18n="inside">Innenbereich</button>
+                        <button class="service-zone-button" type="button" data-service-zone="Terrasse" onclick="switchServiceZone('Terrasse', this)" data-i18n="terrace">Terrasse</button>
+                    </div>
+                    <label>
+                        Tisch
+                        <select id="tableSelect" onchange="syncActiveTableUi()"></select>
+                    </label>
+                </div>
+                <div id="quickTables" class="quick-tables"></div>
+            </div>
             <div class="content">
                 <div class="products-section">
+                    <div class="live-service-overview">
+                        <div class="live-service-header">
+                            <div>
+                                <strong data-i18n="tables_overview">Übersicht Tische</strong>
+                                <span data-i18n="tables_online_hint">Live Status und Sitzdauer</span>
+                            </div>
+                            <button class="secondary-button compact" type="button" onclick="loadTables()" data-i18n="refresh">Aktualisieren</button>
+                        </div>
+                        <div id="liveTablesOverview" class="live-tables-overview"></div>
+                    </div>
+                    <div id="menuBreadcrumbs" class="menu-breadcrumbs"></div>
                     <div id="categories" class="categories"></div>
                     <div id="products" class="products-grid"></div>
                 </div>
 
                 <div class="cart-section">
+                    <button class="cart-close-button" type="button" onclick="closeCartPanel()">×</button>
                     <h2 data-i18n="order">Bestellung</h2>
                     <div id="cartItems" class="cart-items"></div>
 
@@ -144,8 +176,87 @@
                 <div id="topProducts"></div>
             </div>
         </section>
+
+        <section id="usersScreen" class="screen">
+            <div class="section-header">
+                <div>
+                    <h2 data-i18n="users">Benutzer</h2>
+                    <p data-i18n="users_hint">Accounts fuer Admin und Service verwalten</p>
+                </div>
+            </div>
+            <div class="users-layout">
+                <form class="user-form" onsubmit="createUser(event)">
+                    <h3 data-i18n="create_user">Benutzer erstellen</h3>
+                    <div class="role-picker">
+                        <button class="role-choice active" type="button" onclick="setNewUserRole('waiter', this)">Service</button>
+                        <button class="role-choice" type="button" onclick="setNewUserRole('admin', this)">Admin</button>
+                    </div>
+                    <input id="newRole" type="hidden" value="waiter">
+                    <label>
+                        Name
+                        <input id="newDisplayName" type="text" placeholder="z.B. Maria" required>
+                    </label>
+                    <label>
+                        Login
+                        <input id="newUsername" type="text" autocomplete="off" placeholder="z.B. maria" required>
+                    </label>
+                    <label>
+                        Passwort
+                        <div class="password-row">
+                            <input id="newPassword" type="text" required>
+                            <button class="secondary-button compact" type="button" onclick="generateUserPassword()">Generieren</button>
+                        </div>
+                    </label>
+                    <button class="save-button" type="submit" data-i18n="create_user">Benutzer erstellen</button>
+                    <div id="userFormMessage" class="login-error"></div>
+                </form>
+                <div class="users-list-wrap">
+                    <h3 data-i18n="existing_users">Bestehende Benutzer</h3>
+                    <div id="usersList" class="users-list"></div>
+                </div>
+            </div>
+        </section>
     </main>
 </div>
+
+<div id="modifierModal" class="modifier-modal hidden">
+    <div class="modifier-card">
+        <button class="cart-close-button modifier-close" type="button" onclick="closeModifierModal()">×</button>
+        <span data-i18n="kitchen_options">Küchenoptionen</span>
+        <h2 id="modifierProductName">Produkt</h2>
+        <label>
+            Beilage
+            <select id="modifierSide"></select>
+        </label>
+        <div class="quick-notes">
+            <button type="button" onclick="appendKitchenNote('ohne Zwiebeln')">ohne Zwiebeln</button>
+            <button type="button" onclick="appendKitchenNote('ohne Käse')">ohne Käse</button>
+            <button type="button" onclick="appendKitchenNote('ohne Nüsse')">ohne Nüsse</button>
+            <button type="button" onclick="appendKitchenNote('extra Sauce')">extra Sauce</button>
+        </div>
+        <label>
+            Kommentar Küche
+            <textarea id="modifierNote" rows="3" placeholder="z.B. ohne Zwiebeln, ohne Käse"></textarea>
+        </label>
+        <button class="save-button" type="button" onclick="confirmModifierProduct()" data-i18n="add_to_order">Zur Bestellung</button>
+    </div>
+</div>
+
+<div class="cart-backdrop" onclick="closeCartPanel()"></div>
+<button id="mobileCartButton" class="mobile-cart-button" type="button" onclick="openCartPanel()">
+    <span id="mobileCartCount">0</span>
+    <strong id="mobileCartTotal">0.00 €</strong>
+    <em>Bestellung</em>
+</button>
+
+<nav class="mobile-nav">
+    <button class="mobile-nav-button active" data-mobile-screen="pos" onclick="showScreen('pos', document.querySelector('[data-title=&quot;cash_register&quot;]'))">Kasse</button>
+    <button class="mobile-nav-button" data-mobile-screen="tables" onclick="showScreen('tables', document.querySelector('[data-title=&quot;tables&quot;]'))">Tische</button>
+    <button class="mobile-nav-button admin-only" data-mobile-screen="orders" onclick="showScreen('orders', document.querySelector('[data-title=&quot;orders&quot;]'))">Orders</button>
+    <button class="mobile-nav-button admin-only" data-mobile-screen="reports" onclick="showScreen('reports', document.querySelector('[data-title=&quot;reports&quot;]'))">Reports</button>
+    <button class="mobile-nav-button admin-only" data-mobile-screen="users" onclick="showScreen('users', document.querySelector('[data-title=&quot;users&quot;]'))">User</button>
+    <button class="mobile-nav-button" onclick="logout()">Logout</button>
+</nav>
 
 <script src="/static/app.js"></script>
 </body>

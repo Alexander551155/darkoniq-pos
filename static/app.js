@@ -4,7 +4,11 @@ let cart = [];
 let lastOrderId = null;
 let currentScreen = "pos";
 let currentTableZone = "Innenbereich";
+let currentServiceZone = "Innenbereich";
 let restaurantTables = [];
+let menuPath = [];
+let pendingModifierProduct = null;
+let tableRefreshTimer = null;
 let activeTableDrag = null;
 let suppressTableClickUntil = 0;
 let authToken = localStorage.getItem("darkoniq_token") || "";
@@ -24,7 +28,39 @@ const fallbackProducts = [
     {id: 9, name: "Cola", category: "Drinks", price: 3.20},
     {id: 10, name: "Water", category: "Drinks", price: 2.50},
     {id: 11, name: "Beer", category: "Drinks", price: 4.00},
-    {id: 12, name: "Tiramisu", category: "Dessert", price: 5.50}
+    {id: 12, name: "Tiramisu", category: "Dessert", price: 5.50},
+    {id: 13, name: "Schnitzel Wiener Art", category: "Food", price: 14.90},
+    {id: 14, name: "Rumpsteak", category: "Food", price: 24.90},
+    {id: 15, name: "Hausgemachte Limonade", category: "Drinks", price: 4.50},
+    {id: 16, name: "Pils", category: "Drinks", price: 4.20},
+    {id: 17, name: "Weisswein", category: "Drinks", price: 5.80}
+];
+
+const menuTree = {
+    label: "Menü",
+    children: [
+        {key: "drinks", label: "Getränke", children: [
+            {key: "coffee", label: "Kaffee"},
+            {key: "alcohol_free", label: "Alkoholfrei"},
+            {key: "alcohol", label: "Alkoholisch"}
+        ]},
+        {key: "food", label: "Essen", children: [
+            {key: "main", label: "Hauptgerichte"},
+            {key: "pizza", label: "Pizza"},
+            {key: "salad", label: "Salat"},
+            {key: "sides", label: "Beilagen"}
+        ]},
+        {key: "dessert", label: "Dessert"}
+    ]
+};
+
+const sideOptions = [
+    "Keine Beilage",
+    "Pommes Frites",
+    "Bratkartoffeln",
+    "Kartoffelsalat",
+    "Reis",
+    "Gemüse"
 ];
 
 const translations = {
@@ -33,6 +69,7 @@ const translations = {
         tables: "Tische",
         orders: "Bestellungen",
         reports: "Berichte",
+        users: "Benutzer",
         test_version: "Testversion / Nicht fiskalisch",
         order: "Bestellung",
         total: "Gesamt:",
@@ -43,6 +80,28 @@ const translations = {
         tables_hint: "Tische per Touch verschieben oder direkt einen neuen Tisch anlegen",
         orders_hint: "Offene, bezahlte und stornierte Bestellungen verwalten",
         reports_hint: "Tagesumsatz fuer das gewaehlte Datum",
+        users_hint: "Accounts fuer Admin und Service verwalten",
+        create_user: "Benutzer erstellen",
+        existing_users: "Bestehende Benutzer",
+        user_created: "Benutzer wurde erstellt.",
+        user_create_error: "Benutzer konnte nicht erstellt werden.",
+        username_exists: "Login existiert bereits.",
+        delete_user: "Löschen",
+        delete_user_confirm: "Diesen Benutzer löschen?",
+        delete_user_error: "Benutzer konnte nicht gelöscht werden.",
+        delete_self_error: "Du kannst deinen eigenen Account nicht löschen.",
+        delete_last_admin_error: "Der letzte Admin kann nicht gelöscht werden.",
+        password_label: "Passwort",
+        active_table: "Aktiver Tisch",
+        current_order: "Aktuelle Bestellung",
+        tables_overview: "Übersicht Tische",
+        tables_online_hint: "Live Status und Sitzdauer",
+        occupied_since: "seit",
+        guests_waiting: "Gäste sitzen",
+        back: "Zurück",
+        kitchen_options: "Küchenoptionen",
+        add_to_order: "Zur Bestellung",
+        kitchen_note: "Küche",
         all_orders: "Alle Bestellungen",
         open_orders: "Offen",
         paid_orders: "Bezahlt",
@@ -96,8 +155,41 @@ function money(value) {
     return `${Number(value || 0).toFixed(2)} €`;
 }
 
+function parseDateTime(value) {
+    if (!value) return null;
+    return new Date(String(value).replace(" ", "T"));
+}
+
+function formatDuration(firstOrderAt) {
+    const startedAt = parseDateTime(firstOrderAt);
+    if (!startedAt || Number.isNaN(startedAt.getTime())) return "0 min";
+
+    const minutes = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 60000));
+    if (minutes < 60) return `${minutes} min`;
+
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours}h ${restMinutes}m`;
+}
+
+function cartTotal() {
+    return cart.reduce((sum, item) => sum + item.quantity * item.price, 0);
+}
+
+function cartCount() {
+    return cart.reduce((sum, item) => sum + item.quantity, 0);
+}
+
 function setMessage(element, message) {
     element.innerHTML = `<div class="empty-state">${message}</div>`;
+}
+
+function openCartPanel() {
+    document.body.classList.add("cart-open");
+}
+
+function closeCartPanel() {
+    document.body.classList.remove("cart-open");
 }
 
 function apiUrl(path) {
@@ -193,7 +285,7 @@ function applyRoleAccess() {
         element.classList.toggle("hidden", !isAdmin());
     });
 
-    if (!isAdmin() && (currentScreen === "orders" || currentScreen === "reports")) {
+    if (!isAdmin() && (currentScreen === "orders" || currentScreen === "reports" || currentScreen === "users")) {
         showScreen("pos", document.querySelector('[data-title="cash_register"]'));
     }
 }
@@ -218,6 +310,7 @@ function applyLanguage() {
 
 function buildTableSelect() {
     const tableSelect = document.getElementById("tableSelect");
+    if (!tableSelect) return;
     const selectedValue = tableSelect.value || "1";
     const sourceTables = restaurantTables.length > 0
         ? restaurantTables
@@ -227,13 +320,20 @@ function buildTableSelect() {
     sourceTables.forEach(table => {
         const option = document.createElement("option");
         option.value = String(table.table_number);
-        option.textContent = `${t("table")} ${table.table_number}`;
+        option.textContent = table.status
+            ? `${t("table")} ${table.table_number} · ${t(table.status)} · ${money(table.total)}${table.first_order_at ? ` · ${formatDuration(table.first_order_at)}` : ""}`
+            : `${t("table")} ${table.table_number}`;
         tableSelect.appendChild(option);
     });
 
     if ([...tableSelect.options].some(option => option.value === selectedValue)) {
         tableSelect.value = selectedValue;
+    } else if (tableSelect.options.length > 0) {
+        tableSelect.value = tableSelect.options[0].value;
     }
+
+    syncActiveTableUi();
+    renderQuickTables();
 }
 
 async function loadProducts() {
@@ -258,21 +358,35 @@ function renderCategories() {
     const categoriesDiv = document.getElementById("categories");
     if (!categoriesDiv || products.length === 0) return;
 
-    const categories = ["All", ...new Set(products.map(product => product.category))];
+    const node = getMenuNode(menuPath);
+    const children = node?.children || [];
     categoriesDiv.innerHTML = "";
 
-    categories.forEach(category => {
+    if (menuPath.length > 0) {
+        const backButton = document.createElement("button");
+        backButton.className = "category-button back-button";
+        backButton.textContent = `‹ ${t("back")}`;
+        backButton.onclick = () => {
+            menuPath = menuPath.slice(0, -1);
+            renderCategories();
+            renderProducts();
+        };
+        categoriesDiv.appendChild(backButton);
+    }
+
+    children.forEach(child => {
         const button = document.createElement("button");
         button.className = "category-button";
-        button.classList.toggle("active", category === selectedCategory);
-        button.textContent = category === "All" ? t("all") : category;
+        button.textContent = child.label;
         button.onclick = () => {
-            selectedCategory = category;
+            menuPath = [...menuPath, child.key];
             renderCategories();
             renderProducts();
         };
         categoriesDiv.appendChild(button);
     });
+
+    renderMenuBreadcrumbs();
 }
 
 function renderProducts() {
@@ -281,17 +395,37 @@ function renderProducts() {
 
     productsDiv.innerHTML = "";
 
-    const filteredProducts = selectedCategory === "All"
-        ? products
-        : products.filter(product => product.category === selectedCategory);
+    const node = getMenuNode(menuPath);
+    if (node?.children?.length) {
+        node.children.forEach(child => {
+            const card = document.createElement("button");
+            card.className = "menu-tile";
+            card.type = "button";
+            card.innerHTML = `<strong>${child.label}</strong><span>öffnen</span>`;
+            card.onclick = () => {
+                menuPath = [...menuPath, child.key];
+                renderCategories();
+                renderProducts();
+            };
+            productsDiv.appendChild(card);
+        });
+        return;
+    }
+
+    const filteredProducts = products.filter(product => productMatchesPath(product, menuPath));
+    if (filteredProducts.length === 0) {
+        setMessage(productsDiv, t("no_products"));
+        return;
+    }
 
     filteredProducts.forEach(product => {
-        const card = document.createElement("div");
+        const card = document.createElement("button");
         card.className = "product-card";
+        card.type = "button";
         card.innerHTML = `
             <div class="product-info">
                 <h3>${product.name}</h3>
-                <span>${product.category}</span>
+                <span>${getProductGroupLabel(product)}</span>
             </div>
             <strong class="product-price">${money(product.price)}</strong>
         `;
@@ -300,8 +434,79 @@ function renderProducts() {
     });
 }
 
+function getMenuNode(path) {
+    return path.reduce((node, key) => node?.children?.find(child => child.key === key), menuTree);
+}
+
+function renderMenuBreadcrumbs() {
+    const breadcrumbs = document.getElementById("menuBreadcrumbs");
+    if (!breadcrumbs) return;
+
+    const labels = [];
+    let node = menuTree;
+    menuPath.forEach(key => {
+        node = node?.children?.find(child => child.key === key);
+        if (node) labels.push(node.label);
+    });
+    breadcrumbs.textContent = labels.length ? labels.join(" / ") : "Menü";
+}
+
+function normalizedName(product) {
+    return `${product.category} ${product.name}`.toLowerCase();
+}
+
+function getProductGroup(product) {
+    const name = normalizedName(product);
+    if (product.category === "Coffee" || /espresso|cappuccino|latte|americano/.test(name)) return "coffee";
+    if (/beer|pils|wein|wine|rotwein|weisswein/.test(name)) return "alcohol";
+    if (product.category === "Drinks") return "alcohol_free";
+    if (/pizza/.test(name)) return "pizza";
+    if (/salad|salat/.test(name)) return "salad";
+    if (/pommes|bratkartoffeln|beilage/.test(name)) return "sides";
+    if (product.category === "Dessert") return "dessert";
+    if (product.category === "Food") return "main";
+    return "alcohol_free";
+}
+
+function getProductGroupLabel(product) {
+    const group = getProductGroup(product);
+    const labels = {
+        coffee: "Kaffee",
+        alcohol_free: "Alkoholfrei",
+        alcohol: "Alkoholisch",
+        main: "Hauptgerichte",
+        pizza: "Pizza",
+        salad: "Salat",
+        sides: "Beilagen",
+        dessert: "Dessert"
+    };
+    return labels[group] || product.category;
+}
+
+function productMatchesPath(product, path) {
+    const group = getProductGroup(product);
+    const root = path[0];
+    const leaf = path[path.length - 1];
+
+    if (!root) return false;
+    if (root === "drinks") return ["coffee", "alcohol_free", "alcohol"].includes(group) && (path.length === 1 || group === leaf);
+    if (root === "food") return ["main", "pizza", "salad", "sides"].includes(group) && (path.length === 1 || group === leaf);
+    if (root === "dessert") return group === "dessert";
+    return false;
+}
+
 function addToCart(product) {
-    const existingItem = cart.find(item => item.product_name === product.name);
+    if (needsKitchenOptions(product)) {
+        openModifierModal(product);
+        return;
+    }
+
+    addCartLine(product, "");
+}
+
+function addCartLine(product, note = "") {
+    const cleanNote = note.trim();
+    const existingItem = cart.find(item => item.product_name === product.name && item.note === cleanNote && item.price === product.price);
 
     if (existingItem) {
         existingItem.quantity += 1;
@@ -309,20 +514,69 @@ function addToCart(product) {
         cart.push({
             product_name: product.name,
             quantity: 1,
-            price: product.price
+            price: product.price,
+            note: cleanNote
         });
     }
 
     renderCart();
 }
 
-function changeQuantity(productName, delta) {
-    const item = cart.find(cartItem => cartItem.product_name === productName);
+function needsKitchenOptions(product) {
+    return product.category === "Food" && getProductGroup(product) !== "sides";
+}
+
+function openModifierModal(product) {
+    pendingModifierProduct = product;
+    const modal = document.getElementById("modifierModal");
+    const title = document.getElementById("modifierProductName");
+    const sideSelect = document.getElementById("modifierSide");
+    const noteInput = document.getElementById("modifierNote");
+    if (!modal || !title || !sideSelect || !noteInput) return;
+
+    title.textContent = `${product.name} · ${money(product.price)}`;
+    sideSelect.innerHTML = sideOptions.map(option => `<option value="${option}">${option}</option>`).join("");
+    noteInput.value = "";
+    modal.classList.remove("hidden");
+}
+
+function closeModifierModal() {
+    pendingModifierProduct = null;
+    document.getElementById("modifierModal")?.classList.add("hidden");
+}
+
+function appendKitchenNote(text) {
+    const noteInput = document.getElementById("modifierNote");
+    if (!noteInput) return;
+
+    const parts = noteInput.value
+        .split(",")
+        .map(part => part.trim())
+        .filter(Boolean);
+    if (!parts.includes(text)) parts.push(text);
+    noteInput.value = parts.join(", ");
+}
+
+function confirmModifierProduct() {
+    if (!pendingModifierProduct) return;
+
+    const side = document.getElementById("modifierSide")?.value || "";
+    const kitchenNote = document.getElementById("modifierNote")?.value.trim() || "";
+    const noteParts = [];
+    if (side && side !== "Keine Beilage") noteParts.push(`Beilage: ${side}`);
+    if (kitchenNote) noteParts.push(kitchenNote);
+
+    addCartLine(pendingModifierProduct, noteParts.join("; "));
+    closeModifierModal();
+}
+
+function changeQuantity(index, delta) {
+    const item = cart[index];
     if (!item) return;
 
     item.quantity += delta;
     if (item.quantity <= 0) {
-        cart = cart.filter(cartItem => cartItem.product_name !== productName);
+        cart.splice(index, 1);
     }
 
     renderCart();
@@ -336,7 +590,7 @@ function renderCart() {
     cartItemsDiv.innerHTML = "";
     let total = 0;
 
-    cart.forEach(item => {
+    cart.forEach((item, index) => {
         const itemTotal = item.quantity * item.price;
         total += itemTotal;
 
@@ -346,10 +600,11 @@ function renderCart() {
             <div>
                 <strong>${item.quantity}x ${item.product_name}</strong>
                 <span>${money(item.price)} / ${money(itemTotal)}</span>
+                ${item.note ? `<small>${t("kitchen_note")}: ${item.note}</small>` : ""}
             </div>
             <div class="quantity-actions">
-                <button onclick="changeQuantity('${item.product_name}', -1)">-</button>
-                <button onclick="changeQuantity('${item.product_name}', 1)">+</button>
+                <button onclick="changeQuantity(${index}, -1)">-</button>
+                <button onclick="changeQuantity(${index}, 1)">+</button>
             </div>
         `;
         cartItemsDiv.appendChild(div);
@@ -360,6 +615,28 @@ function renderCart() {
     }
 
     totalElement.textContent = money(total);
+    updateMobileCartButton(total);
+    updateServiceCartSummary(total);
+}
+
+function updateMobileCartButton(total = 0) {
+    const countElement = document.getElementById("mobileCartCount");
+    const totalButtonElement = document.getElementById("mobileCartTotal");
+    const mobileCartButton = document.getElementById("mobileCartButton");
+    const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    if (countElement) countElement.textContent = String(itemCount);
+    if (totalButtonElement) totalButtonElement.textContent = money(total);
+    if (mobileCartButton) mobileCartButton.classList.toggle("has-items", itemCount > 0);
+}
+
+function updateServiceCartSummary(total = cartTotal()) {
+    const totalElement = document.getElementById("serviceCartTotal");
+    const countElement = document.getElementById("serviceCartCount");
+    const count = cartCount();
+
+    if (totalElement) totalElement.textContent = money(total);
+    if (countElement) countElement.textContent = `${count} ${count === 1 ? "Position" : "Positionen"}`;
 }
 
 function clearCart() {
@@ -399,8 +676,13 @@ async function saveOrder() {
     const result = await response.json();
     lastOrderId = result.id;
     document.getElementById("receiptPreview").textContent = `${t("saved")}: #${lastOrderId}`;
+    closeCartPanel();
 
-    await Promise.allSettled([loadOrders(), loadTables(), loadReports()]);
+    const refreshTasks = [loadTables()];
+    if (isAdmin()) {
+        refreshTasks.push(loadOrders(), loadReports());
+    }
+    await Promise.allSettled(refreshTasks);
 }
 
 async function printOrder(orderId) {
@@ -476,7 +758,7 @@ async function loadOrders() {
         div.className = "order-card";
 
         const items = order.items
-            .map(item => `${item.quantity}x ${item.product_name}`)
+            .map(item => `${item.quantity}x ${item.product_name}${item.note ? ` (${item.note})` : ""}`)
             .join(", ");
 
         const statusActions = order.status === "open"
@@ -519,6 +801,94 @@ async function loadTables() {
 
     buildTableSelect();
     renderTables();
+    syncActiveTableUi();
+    renderQuickTables();
+}
+
+function getSelectedTable() {
+    const tableNumber = Number(document.getElementById("tableSelect")?.value || 0);
+    return restaurantTables.find(table => table.table_number === tableNumber) || null;
+}
+
+function syncActiveTableUi() {
+    const tableSelect = document.getElementById("tableSelect");
+    const activeTableLabel = document.getElementById("activeTableLabel");
+    const activeTableStatus = document.getElementById("activeTableStatus");
+    const selectedTable = getSelectedTable();
+    const selectedNumber = tableSelect?.value || "1";
+
+    if (selectedTable && selectedTable.zone !== currentServiceZone) {
+        currentServiceZone = selectedTable.zone;
+        syncServiceZoneButtons();
+    }
+
+    if (activeTableLabel) activeTableLabel.textContent = `${t("table")} ${selectedNumber}`;
+    if (activeTableStatus) {
+        activeTableStatus.textContent = selectedTable
+            ? `${t(selectedTable.status)} · ${money(selectedTable.total)}${selectedTable.first_order_at ? ` · ${formatDuration(selectedTable.first_order_at)}` : ""}`
+            : t("free");
+    }
+
+    renderQuickTables();
+}
+
+function selectTable(tableNumber) {
+    const tableSelect = document.getElementById("tableSelect");
+    if (!tableSelect) return;
+    tableSelect.value = String(tableNumber);
+    syncActiveTableUi();
+}
+
+function switchServiceZone(zone, button) {
+    currentServiceZone = zone;
+    syncServiceZoneButtons();
+    if (button) button.classList.add("active");
+    renderQuickTables();
+}
+
+function syncServiceZoneButtons() {
+    document.querySelectorAll(".service-zone-button").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.serviceZone === currentServiceZone);
+    });
+}
+
+function renderQuickTables() {
+    const quickTables = document.getElementById("quickTables");
+    const tableSelect = document.getElementById("tableSelect");
+    if (!quickTables || !tableSelect) return;
+
+    const selectedTableNumber = Number(tableSelect.value || 0);
+    const zoneTables = restaurantTables
+        .filter(table => table.zone === currentServiceZone)
+        .sort((a, b) => a.table_number - b.table_number);
+
+    quickTables.innerHTML = zoneTables.map(table => `
+        <button class="quick-table-chip ${table.status} ${table.table_number === selectedTableNumber ? "active" : ""}"
+                type="button"
+                onclick="selectTable(${table.table_number})">
+            <strong>${table.table_number}</strong>
+            <span>${t(table.status)}</span>
+            <em>${table.first_order_at ? formatDuration(table.first_order_at) : money(table.total)}</em>
+        </button>
+    `).join("");
+    renderLiveTablesOverview();
+}
+
+function renderLiveTablesOverview() {
+    const overview = document.getElementById("liveTablesOverview");
+    if (!overview) return;
+
+    overview.innerHTML = restaurantTables
+        .slice()
+        .sort((a, b) => a.table_number - b.table_number)
+        .map(table => `
+            <button class="live-table-card ${table.status}" type="button" onclick="selectTable(${table.table_number})">
+                <strong>${table.table_number}</strong>
+                <span>${t(table.status)}</span>
+                <em>${table.status === "busy" ? formatDuration(table.first_order_at) : "0 min"}</em>
+                <small>${money(table.total)}</small>
+            </button>
+        `).join("");
 }
 
 function renderTables() {
@@ -713,8 +1083,129 @@ function openTableFromPlan(event, table) {
         return;
     }
 
-    document.getElementById("tableSelect").value = String(table.table_number);
+    currentServiceZone = table.zone;
+    syncServiceZoneButtons();
+    selectTable(table.table_number);
     showScreen("pos", document.querySelector('[data-title="cash_register"]'));
+}
+
+async function loadUsers() {
+    if (!isAdmin()) return;
+
+    const usersList = document.getElementById("usersList");
+    if (!usersList) return;
+
+    try {
+        const response = await authFetch("/api/users");
+        if (!response.ok) throw new Error("Users API failed");
+        const users = await response.json();
+        usersList.innerHTML = users.map(user => `
+            <div class="user-card">
+                <div>
+                    <strong>${user.display_name}</strong>
+                    <span>${user.username}</span>
+                    <code>${t("password_label")}: ${user.password_plain || "nicht gespeichert"}</code>
+                </div>
+                <div class="user-card-actions">
+                    <em>${user.role}</em>
+                    <button class="delete-user-button" type="button" onclick="deleteUser(${user.id})">${t("delete_user")}</button>
+                </div>
+            </div>
+        `).join("");
+    } catch (error) {
+        setMessage(usersList, t("api_unavailable"));
+    }
+}
+
+function setNewUserRole(role, button) {
+    document.getElementById("newRole").value = role;
+    document.querySelectorAll(".role-choice").forEach(choice => choice.classList.remove("active"));
+    button.classList.add("active");
+}
+
+function generateUserPassword() {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    let password = "";
+    for (let index = 0; index < 10; index += 1) {
+        password += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    document.getElementById("newPassword").value = password;
+}
+
+async function createUser(event) {
+    event.preventDefault();
+
+    const message = document.getElementById("userFormMessage");
+    const displayName = document.getElementById("newDisplayName").value.trim();
+    const username = document.getElementById("newUsername").value.trim();
+    const password = document.getElementById("newPassword").value;
+    const role = document.getElementById("newRole").value;
+    message.textContent = "";
+
+    try {
+        const response = await authFetch("/api/users", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                display_name: displayName,
+                username,
+                password,
+                role
+            })
+        });
+
+        if (response.status === 409) {
+            message.textContent = t("username_exists");
+            return;
+        }
+
+        if (!response.ok) {
+            message.textContent = t("user_create_error");
+            return;
+        }
+
+        event.target.reset();
+        document.getElementById("newRole").value = "waiter";
+        document.querySelectorAll(".role-choice").forEach(choice => {
+            choice.classList.toggle("active", choice.textContent.trim() === "Service");
+        });
+        message.textContent = t("user_created");
+        await loadUsers();
+    } catch (error) {
+        message.textContent = t("api_unavailable");
+    }
+}
+
+async function deleteUser(userId) {
+    if (!confirm(t("delete_user_confirm"))) return;
+
+    const message = document.getElementById("userFormMessage");
+    message.textContent = "";
+
+    try {
+        const response = await authFetch(`/api/users/${userId}`, {
+            method: "DELETE"
+        });
+
+        if (response.status === 400) {
+            message.textContent = t("delete_self_error");
+            return;
+        }
+
+        if (response.status === 409) {
+            message.textContent = t("delete_last_admin_error");
+            return;
+        }
+
+        if (!response.ok) {
+            message.textContent = t("delete_user_error");
+            return;
+        }
+
+        await loadUsers();
+    } catch (error) {
+        message.textContent = t("api_unavailable");
+    }
 }
 
 async function loadReports() {
@@ -771,35 +1262,53 @@ function updateScreenTitle() {
         pos: "cash_register",
         tables: "tables",
         orders: "orders",
-        reports: "reports"
+        reports: "reports",
+        users: "users"
     };
     const screenTitle = document.getElementById("screenTitle");
     screenTitle.textContent = t(titleMap[currentScreen]);
 }
 
+function startLiveTableTimer() {
+    if (tableRefreshTimer) return;
+
+    tableRefreshTimer = window.setInterval(() => {
+        renderQuickTables();
+        syncActiveTableUi();
+        renderLiveTablesOverview();
+    }, 60000);
+}
+
 function showScreen(screenName, button) {
-    if (!isAdmin() && (screenName === "orders" || screenName === "reports")) {
+    if (!isAdmin() && (screenName === "orders" || screenName === "reports" || screenName === "users")) {
         screenName = "pos";
         button = document.querySelector('[data-title="cash_register"]');
     }
 
     currentScreen = screenName;
+    document.body.dataset.screen = currentScreen;
 
     document.querySelectorAll(".nav-button").forEach(navButton => navButton.classList.remove("active"));
     if (button) button.classList.add("active");
+    document.querySelectorAll(".mobile-nav-button").forEach(navButton => navButton.classList.remove("active"));
+    const mobileButton = document.querySelector(`[data-mobile-screen="${screenName}"]`);
+    if (mobileButton) mobileButton.classList.add("active");
 
     document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active-screen"));
     document.getElementById(`${screenName}Screen`).classList.add("active-screen");
+    closeCartPanel();
 
     updateScreenTitle();
 
     if (screenName === "tables") loadTables();
     if (screenName === "orders") loadOrders();
     if (screenName === "reports") loadReports();
+    if (screenName === "users") loadUsers();
 }
 
 async function startApp() {
     hideLogin();
+    document.body.dataset.screen = currentScreen;
     applyRoleAccess();
     buildTableSelect();
     const reportDate = document.getElementById("reportDate");
@@ -808,12 +1317,13 @@ async function startApp() {
     await loadProducts();
     const startupTasks = [loadTables()];
     if (isAdmin()) {
-        startupTasks.push(loadOrders(), loadReports());
+        startupTasks.push(loadOrders(), loadReports(), loadUsers());
     }
     await Promise.allSettled(startupTasks);
     applyLanguage();
     applyRoleAccess();
     renderCart();
+    startLiveTableTimer();
 }
 
 async function bootstrap() {

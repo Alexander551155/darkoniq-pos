@@ -16,6 +16,19 @@ let currentUser = JSON.parse(localStorage.getItem("darkoniq_user") || "null");
 
 const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
 
+function syncAppViewportHeight() {
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    document.documentElement.style.setProperty("--app-height", `${Math.round(viewportHeight)}px`);
+    if (currentScreen === "tables") {
+        window.requestAnimationFrame(renderTables);
+    }
+}
+
+syncAppViewportHeight();
+window.addEventListener("resize", syncAppViewportHeight);
+window.addEventListener("orientationchange", syncAppViewportHeight);
+window.visualViewport?.addEventListener("resize", syncAppViewportHeight);
+
 const fallbackProducts = [
     {id: 1, name: "Espresso", category: "Coffee", price: 2.20},
     {id: 2, name: "Cappuccino", category: "Coffee", price: 3.30},
@@ -70,6 +83,7 @@ const translations = {
         orders: "Bestellungen",
         reports: "Berichte",
         users: "Benutzer",
+        settings: "Einstellungen",
         test_version: "Testversion / Nicht fiskalisch",
         order: "Bestellung",
         total: "Gesamt:",
@@ -81,6 +95,9 @@ const translations = {
         orders_hint: "Offene, bezahlte und stornierte Bestellungen verwalten",
         reports_hint: "Tagesumsatz fuer das gewaehlte Datum",
         users_hint: "Accounts fuer Admin und Service verwalten",
+        settings_hint: "Admin-Bereich fuer Tische und Layout",
+        table_settings: "Tisch-Einstellungen",
+        table_settings_hint: "Tische anlegen, loeschen und auf der Karte anzeigen",
         create_user: "Benutzer erstellen",
         existing_users: "Bestehende Benutzer",
         user_created: "Benutzer wurde erstellt.",
@@ -140,8 +157,12 @@ const translations = {
         zone: "Bereich",
         inside: "Innenbereich",
         terrace: "Terrasse",
+        to_go: "TO GO",
+        vip: "VIP",
         inside_hint: "Hauptraum",
         terrace_hint: "Außenbereich",
+        to_go_hint: "Abholung",
+        vip_hint: "VIP Bereich",
         touch_hint: "Touch-Modus",
         drag_hint: "Tisch halten und ziehen. Tippen öffnet die Kasse. Löschen geht nur ohne offene Bestellung.",
         all: "Alle",
@@ -150,6 +171,17 @@ const translations = {
         items: "Positionen"
     }
 };
+
+const tableZoneMeta = {
+    Innenbereich: {label: "inside", hint: "inside_hint", className: "inside-plan"},
+    Terrasse: {label: "terrace", hint: "terrace_hint", className: "terrace-plan"},
+    "TO GO": {label: "to_go", hint: "to_go_hint", className: "to-go-plan"},
+    VIP: {label: "vip", hint: "vip_hint", className: "vip-plan"}
+};
+
+function getTableZoneMeta(zone) {
+    return tableZoneMeta[zone] || {label: zone, hint: "zone", className: ""};
+}
 
 function t(key) {
     return translations.de[key] || key;
@@ -293,7 +325,7 @@ function applyRoleAccess() {
         element.classList.toggle("hidden", !isAdmin());
     });
 
-    if (!isAdmin() && (currentScreen === "orders" || currentScreen === "reports" || currentScreen === "users")) {
+    if (!isAdmin() && (currentScreen === "orders" || currentScreen === "reports" || currentScreen === "users" || currentScreen === "settings")) {
         showScreen("pos", document.querySelector('[data-title="cash_register"]'));
     }
 }
@@ -846,6 +878,7 @@ function selectTable(tableNumber) {
     if (!tableSelect) return;
     tableSelect.value = String(tableNumber);
     syncActiveTableUi();
+    if (currentScreen === "tables") renderTables();
 }
 
 function switchServiceZone(zone, button) {
@@ -915,6 +948,39 @@ function syncFloorLayerHeight(layer, floorPlan, tables) {
     return baseHeight;
 }
 
+function syncTerminalTableGrid(layer, floorPlan, tableCount) {
+    if (!layer || !floorPlan) return;
+
+    const count = Math.max(1, tableCount);
+    const width = Math.max(1, floorPlan.clientWidth || window.innerWidth || 1);
+    const height = Math.max(1, floorPlan.clientHeight || window.innerHeight || 1);
+    const stageRatio = width / height;
+    const targetCellRatio = stageRatio >= 1.25 ? 1.55 : 1.08;
+    let columns = 1;
+    let rows = count;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (let candidateColumns = 1; candidateColumns <= count; candidateColumns += 1) {
+        const candidateRows = Math.ceil(count / candidateColumns);
+        const emptySlots = candidateColumns * candidateRows - count;
+        const cellRatio = (width / candidateColumns) / (height / candidateRows);
+        const ratioScore = Math.abs(Math.log(cellRatio / targetCellRatio));
+        const emptyScore = emptySlots / Math.max(1, count) * 0.35;
+        const score = ratioScore + emptyScore;
+
+        if (score < bestScore) {
+            bestScore = score;
+            columns = candidateColumns;
+            rows = candidateRows;
+        }
+    }
+
+    layer.style.removeProperty("height");
+    layer.classList.toggle("dense", count > 12);
+    layer.style.setProperty("--table-grid-columns", String(columns));
+    layer.style.setProperty("--table-grid-rows", String(rows));
+}
+
 function renderTables() {
     const layer = document.getElementById("tablesGrid");
     const floorPlan = document.getElementById("floorPlan");
@@ -924,27 +990,30 @@ function renderTables() {
     if (!layer) return;
 
     layer.innerHTML = "";
-    floorPlan?.classList.toggle("terrace-plan", currentTableZone === "Terrasse");
-    if (activeZoneTitle) activeZoneTitle.textContent = currentTableZone === "Terrasse" ? t("terrace") : t("inside");
-    if (activeZoneHint) activeZoneHint.textContent = currentTableZone === "Terrasse" ? t("terrace_hint") : t("inside_hint");
-    if (activeZoneBadge) activeZoneBadge.textContent = currentTableZone === "Terrasse" ? t("terrace") : t("inside");
+    const zoneMeta = getTableZoneMeta(currentTableZone);
+    floorPlan?.classList.remove("terrace-plan", "to-go-plan", "vip-plan");
+    if (zoneMeta.className) floorPlan?.classList.add(zoneMeta.className);
+    if (activeZoneTitle) activeZoneTitle.textContent = t(zoneMeta.label);
+    if (activeZoneHint) activeZoneHint.textContent = t(zoneMeta.hint);
+    if (activeZoneBadge) activeZoneBadge.textContent = t(zoneMeta.label);
 
-    const visibleTables = restaurantTables.filter(table => table.zone === currentTableZone);
-    const baseHeight = syncFloorLayerHeight(layer, floorPlan, visibleTables) || 680;
+    const visibleTables = restaurantTables
+        .filter(table => table.zone === currentTableZone)
+        .sort((a, b) => a.table_number - b.table_number);
+    const selectedTableNumber = Number(document.getElementById("tableSelect")?.value || 0);
+    syncTerminalTableGrid(layer, floorPlan, visibleTables.length);
 
     visibleTables.forEach(table => {
 
-        const card = document.createElement("div");
-        card.className = `floor-table ${table.status}`;
-        card.setAttribute("role", "button");
+        const card = document.createElement("button");
+        card.className = `floor-table ${table.status} ${table.table_number === selectedTableNumber ? "active" : ""}`;
+        card.type = "button";
         card.tabIndex = 0;
-        card.style.left = `${Math.min(tableCoordinate(table.x), 100)}%`;
-        card.style.top = `${(tableCoordinate(table.y) / 100) * baseHeight}px`;
         card.dataset.tableId = String(table.id);
         card.dataset.tableNumber = String(table.table_number);
+        card.title = `${t("table")} ${table.table_number} · ${table.seats} ${t("seats")} · ${t(table.status)}`;
         card.innerHTML = `
-            <button class="delete-table-button admin-only" type="button" title="${t("delete_table")}">×</button>
-            <strong>T${table.table_number}</strong>
+            <strong>${table.table_number}</strong>
             <span class="table-seat-count" title="${table.seats} ${t("seats")}">
                 <svg class="table-seat-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M7 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm10 0a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM3.5 19c.7-3.1 2.5-5 5-5s4.3 1.9 5 5H3.5Zm7 0c.6-2.5 2-4.1 4-4.7.7-.2 1.5-.3 2.3-.3 2.5 0 4.3 1.9 5 5H10.5Z"></path>
@@ -953,16 +1022,6 @@ function renderTables() {
             </span>
             <span class="table-status-dot"></span>
         `;
-        const deleteButton = card.querySelector(".delete-table-button");
-        deleteButton.classList.toggle("hidden", !isAdmin());
-        deleteButton.addEventListener("pointerdown", event => event.stopPropagation());
-        deleteButton.addEventListener("click", event => {
-            event.stopPropagation();
-            deleteTable(table);
-        });
-        if (isAdmin()) {
-            card.addEventListener("pointerdown", event => startTableDrag(event, table));
-        }
         card.addEventListener("click", event => openTableFromPlan(event, table));
         layer.appendChild(card);
     });
@@ -1012,17 +1071,19 @@ function focusTableOnPlan(tableId) {
         renderTableManager();
     }
 
+    currentServiceZone = table.zone;
+    syncServiceZoneButtons();
+    selectTable(table.table_number);
+
     const floorPlan = document.getElementById("floorPlan");
     const card = document.querySelector(`.floor-table[data-table-id="${tableId}"]`);
     if (!floorPlan || !card) return;
 
-    floorPlan.scrollTo({
-        top: Math.max(0, card.offsetTop - 24),
+    card.scrollIntoView({
+        block: "center",
+        inline: "center",
         behavior: "smooth"
     });
-    currentServiceZone = table.zone;
-    syncServiceZoneButtons();
-    selectTable(table.table_number);
     card.classList.add("spotlight");
     window.setTimeout(() => card.classList.remove("spotlight"), 1200);
 }
@@ -1362,7 +1423,8 @@ function updateScreenTitle() {
         tables: "tables",
         orders: "orders",
         reports: "reports",
-        users: "users"
+        users: "users",
+        settings: "settings"
     };
     const screenTitle = document.getElementById("screenTitle");
     screenTitle.textContent = t(titleMap[currentScreen]);
@@ -1379,7 +1441,7 @@ function startLiveTableTimer() {
 }
 
 function showScreen(screenName, button) {
-    if (!isAdmin() && (screenName === "orders" || screenName === "reports" || screenName === "users")) {
+    if (!isAdmin() && (screenName === "orders" || screenName === "reports" || screenName === "users" || screenName === "settings")) {
         screenName = "pos";
         button = document.querySelector('[data-title="cash_register"]');
     }
@@ -1402,6 +1464,7 @@ function showScreen(screenName, button) {
     if (screenName === "orders") loadOrders();
     if (screenName === "reports") loadReports();
     if (screenName === "users") loadUsers();
+    if (screenName === "settings") loadTables();
 }
 
 async function startApp() {

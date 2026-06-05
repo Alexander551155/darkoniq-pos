@@ -31,6 +31,13 @@ TABLE_LAYOUT_X_STEP = 18
 TABLE_LAYOUT_Y_STEP = 20
 TABLE_LAYOUT_COLLISION_X = 14
 TABLE_LAYOUT_COLLISION_Y = 18
+TABLE_ZONES = ("Innenbereich", "Terrasse", "TO GO", "VIP")
+TABLE_NUMBER_RANGES = {
+    "Innenbereich": (1, 100),
+    "Terrasse": (100, 200),
+    "TO GO": (200, 300),
+    "VIP": (300, 400),
+}
 
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 
@@ -71,6 +78,36 @@ def get_next_table_layout_position(existing_tables):
         if is_table_layout_position_free(x, y, existing_tables):
             return x, y
         table_index += 1
+
+
+def normalize_table_zone(zone: str):
+    normalized = " ".join(str(zone or "").strip().split()).upper()
+    for table_zone in TABLE_ZONES:
+        if normalized == table_zone.upper():
+            return table_zone
+
+    raise HTTPException(status_code=400, detail="Invalid table zone")
+
+
+def get_next_table_number(cursor, zone: str):
+    start, end = TABLE_NUMBER_RANGES[zone]
+    cursor.execute(
+        """
+        SELECT table_number
+        FROM restaurant_tables
+        WHERE table_number >= ? AND table_number < ?
+        """,
+        (start, end),
+    )
+    used_numbers = {row["table_number"] for row in cursor.fetchall()}
+    table_number = start
+    while table_number in used_numbers:
+        table_number += 1
+
+    if table_number >= end:
+        raise HTTPException(status_code=400, detail="No free table numbers in this zone")
+
+    return table_number
 
 
 def init_db():
@@ -205,10 +242,14 @@ def init_db():
             (6, 2, 28, 34, "Innenbereich"),
             (7, 3, 48, 34, "Innenbereich"),
             (8, 4, 68, 34, "Innenbereich"),
-            (9, 4, 10, 62, "Terrasse"),
-            (10, 2, 30, 62, "Terrasse"),
-            (11, 6, 52, 62, "Terrasse"),
-            (12, 2, 74, 62, "Terrasse"),
+            (100, 4, 10, 62, "Terrasse"),
+            (101, 2, 30, 62, "Terrasse"),
+            (102, 6, 52, 62, "Terrasse"),
+            (103, 2, 74, 62, "Terrasse"),
+            (200, 1, 10, 10, "TO GO"),
+            (201, 1, 30, 10, "TO GO"),
+            (300, 4, 10, 10, "VIP"),
+            (301, 6, 30, 10, "VIP"),
         ]
         cursor.executemany(
             """
@@ -651,13 +692,13 @@ def get_tables(user: dict = Depends(get_current_user)):
 def create_table(table: CreateTableRequest, user: dict = Depends(require_admin)):
     conn = get_connection()
     cursor = conn.cursor()
+    zone = normalize_table_zone(table.zone)
 
-    cursor.execute("SELECT COALESCE(MAX(table_number), 0) + 1 FROM restaurant_tables")
-    table_number = cursor.fetchone()[0]
+    table_number = get_next_table_number(cursor, zone)
 
     cursor.execute(
         "SELECT x, y FROM restaurant_tables WHERE zone = ?",
-        (table.zone,)
+        (zone,)
     )
     x, y = get_next_table_layout_position(cursor.fetchall())
 
@@ -666,7 +707,7 @@ def create_table(table: CreateTableRequest, user: dict = Depends(require_admin))
         INSERT INTO restaurant_tables (table_number, seats, x, y, zone)
         VALUES (?, ?, ?, ?, ?)
         """,
-        (table_number, table.seats, x, y, table.zone)
+        (table_number, table.seats, x, y, zone)
     )
     conn.commit()
     table_id = cursor.lastrowid
@@ -708,6 +749,8 @@ def update_table(
     for field in ("x", "y", "seats", "zone"):
         value = getattr(table, field)
         if value is not None:
+            if field == "zone":
+                value = normalize_table_zone(value)
             updates.append(f"{field} = ?")
             params.append(value)
 

@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>DARKONIQ POS</title>
-    <link rel="stylesheet" href="/static/styles.css?v=waiter-map-7">
+    <link rel="stylesheet" href="/static/styles.css?v=zones-12">
 </head>
 <body>
 <section id="loginScreen" class="login-screen">
@@ -39,6 +39,7 @@
         <button class="nav-button admin-only" onclick="showScreen('orders', this)" data-title="orders" data-i18n="orders">Bestellungen</button>
         <button class="nav-button admin-only" onclick="showScreen('reports', this)" data-title="reports" data-i18n="reports">Berichte</button>
         <button class="nav-button admin-only" onclick="showScreen('users', this)" data-title="users" data-i18n="users">Benutzer</button>
+        <button class="nav-button admin-only" onclick="showScreen('settings', this)" data-title="settings" data-i18n="settings">Einstellungen</button>
         <button class="nav-button logout-button" onclick="logout()">Logout</button>
     </aside>
 
@@ -54,6 +55,7 @@
                 <button class="mobile-role-button admin-only" data-mobile-screen="orders" type="button" onclick="showScreen('orders', document.querySelector('[data-title=&quot;orders&quot;]'))">Bestellungen</button>
                 <button class="mobile-role-button admin-only" data-mobile-screen="reports" type="button" onclick="showScreen('reports', document.querySelector('[data-title=&quot;reports&quot;]'))">Berichte</button>
                 <button class="mobile-role-button admin-only" data-mobile-screen="users" type="button" onclick="showScreen('users', document.querySelector('[data-title=&quot;users&quot;]'))">Benutzer</button>
+                <button class="mobile-role-button admin-only" data-mobile-screen="settings" type="button" onclick="showScreen('settings', document.querySelector('[data-title=&quot;settings&quot;]'))">Einstellungen</button>
                 <button class="mobile-role-button logout-mobile-button" type="button" onclick="logout()">Logout</button>
             </nav>
 
@@ -75,6 +77,8 @@
                     <div class="service-zone-tabs">
                         <button class="service-zone-button active" type="button" data-service-zone="Innenbereich" onclick="switchServiceZone('Innenbereich', this)" data-i18n="inside">Innenbereich</button>
                         <button class="service-zone-button" type="button" data-service-zone="Terrasse" onclick="switchServiceZone('Terrasse', this)" data-i18n="terrace">Terrasse</button>
+                        <button class="service-zone-button" type="button" data-service-zone="TO GO" onclick="switchServiceZone('TO GO', this)" data-i18n="to_go">TO GO</button>
+                        <button class="service-zone-button" type="button" data-service-zone="VIP" onclick="switchServiceZone('VIP', this)" data-i18n="vip">VIP</button>
                     </div>
                     <label>
                         Tisch
@@ -119,55 +123,25 @@
             </div>
         </section>
 
-        <section id="tablesScreen" class="screen">
-            <div class="section-header">
-                <div>
-                    <h2 data-i18n="tables">Tische</h2>
-                    <p data-i18n="tables_hint">Tische per Touch verschieben oder direkt einen neuen Tisch anlegen</p>
-                </div>
-                <div class="table-toolbar">
-                    <button class="secondary-button" onclick="loadTables()" data-i18n="refresh">Aktualisieren</button>
-                </div>
-            </div>
-            <div class="floor-shell">
+        <section id="tablesScreen" class="screen table-service-screen">
+            <div class="floor-shell table-service-shell">
                 <div class="floor-board">
-                    <div class="zone-switcher">
-                        <button class="zone-tab active" data-table-zone="Innenbereich" onclick="switchTableZone('Innenbereich')" data-i18n="inside">Innenbereich</button>
-                        <button class="zone-tab" data-table-zone="Terrasse" onclick="switchTableZone('Terrasse')" data-i18n="terrace">Terrasse</button>
-                    </div>
-                    <div class="floor-board-header">
-                        <div>
-                            <strong id="activeZoneTitle" data-i18n="inside">Innenbereich</strong>
-                            <span id="activeZoneHint" data-i18n="inside_hint">Hauptraum</span>
+                    <div class="floor-plan terminal-floor-plan" id="floorPlan">
+                        <div class="terminal-top-actions">
+                            <button class="terminal-action-button" type="button" onclick="showScreen('pos', document.querySelector('[data-title=&quot;cash_register&quot;]'))">Kasse</button>
+                            <button class="terminal-action-button admin-only" type="button" onclick="showScreen('settings', document.querySelector('[data-title=&quot;settings&quot;]'))">Einstellungen</button>
                         </div>
-                        <button class="save-button compact admin-only" onclick="createTable()" data-i18n="add_table">Tisch hinzufügen</button>
-                    </div>
-                    <div class="floor-plan" id="floorPlan">
-                        <div id="activeZoneBadge" class="floor-zone zone-main">Innenbereich</div>
-                        <div class="restaurant-fixtures" aria-hidden="true">
-                            <div class="restaurant-fixture fixture-bar">Bar</div>
-                            <div class="restaurant-fixture fixture-kitchen">Küche</div>
-                            <div class="restaurant-fixture fixture-window">Fensterfront</div>
-                            <div class="restaurant-fixture fixture-entry">Eingang</div>
-                            <div class="restaurant-fixture fixture-lounge">Lounge</div>
+                        <div class="zone-switcher terminal-zone-switcher">
+                            <button class="zone-tab active" data-table-zone="Innenbereich" onclick="switchTableZone('Innenbereich')" data-i18n="inside">Innenbereich</button>
+                            <button class="zone-tab" data-table-zone="Terrasse" onclick="switchTableZone('Terrasse')" data-i18n="terrace">Terrasse</button>
+                            <button class="zone-tab" data-table-zone="TO GO" onclick="switchTableZone('TO GO')" data-i18n="to_go">TO GO</button>
+                            <button class="zone-tab" data-table-zone="VIP" onclick="switchTableZone('VIP')" data-i18n="vip">VIP</button>
                         </div>
-                        <div id="tablesGrid" class="tables-layer"></div>
-                    </div>
-                    <div class="floor-help">
-                        <strong data-i18n="touch_hint">Touch-Modus</strong>
-                        <span data-i18n="drag_hint">Tisch halten und ziehen. Tippen öffnet die Kasse. Löschen geht nur ohne offene Bestellung.</span>
+                        <div id="activeZoneBadge" class="floor-zone terminal-zone-title">Innenbereich</div>
+                        <div id="tablesGrid" class="tables-layer terminal-tables-layer"></div>
+                        <div class="terminal-map-watermark">DARKONIQ POS</div>
                     </div>
                 </div>
-                <aside class="table-manager-panel">
-                    <div class="table-manager-header">
-                        <div>
-                            <strong data-i18n="table_manager">Übersicht Tische</strong>
-                            <span data-i18n="table_manager_hint">Antippen zeigt den Tisch auf der Karte</span>
-                        </div>
-                        <em id="tableManagerCount">0</em>
-                    </div>
-                    <div id="tableManagerList" class="table-manager-list"></div>
-                </aside>
             </div>
         </section>
 
@@ -244,6 +218,43 @@
                 </div>
             </div>
         </section>
+
+        <section id="settingsScreen" class="screen admin-only">
+            <div class="section-header">
+                <div>
+                    <h2 data-i18n="settings">Einstellungen</h2>
+                    <p data-i18n="settings_hint">Admin-Bereich fuer Tische und Layout</p>
+                </div>
+            </div>
+            <div class="settings-layout">
+                <section class="settings-card">
+                    <div class="settings-card-header">
+                        <div>
+                            <strong data-i18n="table_settings">Tisch-Einstellungen</strong>
+                            <span data-i18n="table_settings_hint">Tische anlegen, loeschen und auf der Karte anzeigen</span>
+                        </div>
+                    </div>
+                    <div class="zone-switcher settings-zone-switcher">
+                        <button class="zone-tab active" data-table-zone="Innenbereich" onclick="switchTableZone('Innenbereich')" data-i18n="inside">Innenbereich</button>
+                        <button class="zone-tab" data-table-zone="Terrasse" onclick="switchTableZone('Terrasse')" data-i18n="terrace">Terrasse</button>
+                        <button class="zone-tab" data-table-zone="TO GO" onclick="switchTableZone('TO GO')" data-i18n="to_go">TO GO</button>
+                        <button class="zone-tab" data-table-zone="VIP" onclick="switchTableZone('VIP')" data-i18n="vip">VIP</button>
+                    </div>
+                    <div class="settings-actions-grid">
+                        <button class="secondary-button compact" onclick="loadTables()" data-i18n="refresh">Aktualisieren</button>
+                        <button class="save-button compact" onclick="createTable()" data-i18n="add_table">Tisch hinzufügen</button>
+                    </div>
+                    <div class="table-manager-header settings-table-header">
+                        <div>
+                            <strong data-i18n="table_manager">Übersicht Tische</strong>
+                            <span data-i18n="table_manager_hint">Antippen zeigt den Tisch auf der Karte</span>
+                        </div>
+                        <em id="tableManagerCount">0</em>
+                    </div>
+                    <div id="tableManagerList" class="table-manager-list settings-table-list"></div>
+                </section>
+            </div>
+        </section>
     </main>
 </div>
 
@@ -283,9 +294,10 @@
     <button class="mobile-nav-button admin-only" data-mobile-screen="orders" onclick="showScreen('orders', document.querySelector('[data-title=&quot;orders&quot;]'))">Orders</button>
     <button class="mobile-nav-button admin-only" data-mobile-screen="reports" onclick="showScreen('reports', document.querySelector('[data-title=&quot;reports&quot;]'))">Reports</button>
     <button class="mobile-nav-button admin-only" data-mobile-screen="users" onclick="showScreen('users', document.querySelector('[data-title=&quot;users&quot;]'))">User</button>
+    <button class="mobile-nav-button admin-only" data-mobile-screen="settings" onclick="showScreen('settings', document.querySelector('[data-title=&quot;settings&quot;]'))">Settings</button>
     <button class="mobile-nav-button" onclick="logout()">Logout</button>
 </nav>
 
-<script src="/static/app.js?v=waiter-map-7"></script>
+<script src="/static/app.js?v=zones-12"></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DARKONIQ POS</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -11,64 +12,116 @@
         <h1>DARKONIQ</h1>
         <p>Restaurant POS</p>
 
-        <button class="nav-button active" onclick="showScreen('pos', this)" data-i18n="cash_register">Касса</button>
-        <button class="nav-button" onclick="showScreen('tables', this)" data-i18n="tables">Столы</button>
-        <button class="nav-button" onclick="showScreen('orders', this)" data-i18n="orders">Заказы</button>
-        <button class="nav-button" onclick="showScreen('reports', this)" data-i18n="reports">Отчёты</button>
-        
+        <button class="nav-button active" onclick="showScreen('pos', this)" data-title="cash_register" data-i18n="cash_register">Kasse</button>
+        <button class="nav-button" onclick="showScreen('tables', this)" data-title="tables" data-i18n="tables">Tische</button>
+        <button class="nav-button" onclick="showScreen('orders', this)" data-title="orders" data-i18n="orders">Bestellungen</button>
+        <button class="nav-button" onclick="showScreen('reports', this)" data-title="reports" data-i18n="reports">Berichte</button>
     </aside>
 
     <main class="main">
         <header class="topbar">
             <div>
-                <h2 data-i18n="cash_register">Касса</h2>
-                <p data-i18n="test_version">Тестовая версия / Nicht fiskalisch</p>
+                <h2 id="screenTitle" data-i18n="cash_register">Kasse</h2>
+                <p data-i18n="test_version">Testversion / Nicht fiskalisch</p>
             </div>
 
             <div class="top-actions">
-                <select id="languageSelect" onchange="changeLanguage()">
-                    <option value="ru">RU</option>
-                    <option value="de">DE</option>
-                    <option value="en">EN</option>
-                </select>
-
-                <select id="tableSelect">
-                    <option value="1" data-i18n="table_1">Стол 1</option>
-                    <option value="2" data-i18n="table_2">Стол 2</option>
-                    <option value="3" data-i18n="table_3">Стол 3</option>
-                    <option value="4" data-i18n="table_4">Стол 4</option>
-                    <option value="5" data-i18n="table_5">Стол 5</option>
-                    <option value="6" data-i18n="table_6">Стол 6</option>
-                </select>
+                <select id="tableSelect"></select>
             </div>
         </header>
 
-        <section class="content">
-            <div class="products-section">
-                <div id="categories" class="categories"></div>
-                <div id="products" class="products-grid"></div>
-            </div>
-
-            <div class="cart-section">
-                <h2 data-i18n="order">Заказ</h2>
-                <div id="cartItems" class="cart-items"></div>
-
-                <div class="total-box">
-                    <span data-i18n="total">Итого:</span>
-                    <strong id="total">0.00 €</strong>
+        <section id="posScreen" class="screen active-screen">
+            <div class="content">
+                <div class="products-section">
+                    <div id="categories" class="categories"></div>
+                    <div id="products" class="products-grid"></div>
                 </div>
 
-                <button class="save-button" onclick="saveOrder()" data-i18n="save_order">Сохранить заказ</button>
-                <button class="print-button" onclick="printLastOrder()" data-i18n="print_receipt">Печать чека</button>
-                <button class="clear-button" onclick="clearCart()" data-i18n="clear">Очистить</button>
+                <div class="cart-section">
+                    <h2 data-i18n="order">Bestellung</h2>
+                    <div id="cartItems" class="cart-items"></div>
 
-                <pre id="receiptPreview"></pre>
+                    <div class="total-box">
+                        <span data-i18n="total">Gesamt:</span>
+                        <strong id="total">0.00 €</strong>
+                    </div>
+
+                    <button class="save-button" onclick="saveOrder()" data-i18n="save_order">Bestellung speichern</button>
+                    <button class="print-button" onclick="printLastOrder()" data-i18n="print_receipt">Bon drucken</button>
+                    <button class="clear-button" onclick="clearCart()" data-i18n="clear">Leeren</button>
+
+                    <pre id="receiptPreview"></pre>
+                </div>
             </div>
         </section>
 
-        <section class="orders-section">
-            <h2 data-i18n="latest_orders">Последние заказы</h2>
-            <div id="ordersList"></div>
+        <section id="tablesScreen" class="screen">
+            <div class="section-header">
+                <div>
+                    <h2 data-i18n="tables">Tische</h2>
+                    <p data-i18n="tables_hint">Tische per Touch verschieben oder direkt einen neuen Tisch anlegen</p>
+                </div>
+                <div class="table-toolbar">
+                    <button class="secondary-button" onclick="loadTables()" data-i18n="refresh">Aktualisieren</button>
+                </div>
+            </div>
+            <div class="floor-shell">
+                <div class="floor-board">
+                    <div class="zone-switcher">
+                        <button class="zone-tab active" onclick="switchTableZone('Innenbereich', this)" data-i18n="inside">Innenbereich</button>
+                        <button class="zone-tab" onclick="switchTableZone('Terrasse', this)" data-i18n="terrace">Terrasse</button>
+                    </div>
+                    <div class="floor-board-header">
+                        <div>
+                            <strong id="activeZoneTitle" data-i18n="inside">Innenbereich</strong>
+                            <span id="activeZoneHint" data-i18n="inside_hint">Hauptraum</span>
+                        </div>
+                        <button class="save-button compact" onclick="createTable()" data-i18n="add_table">Tisch hinzufügen</button>
+                    </div>
+                    <div class="floor-plan" id="floorPlan">
+                        <div id="activeZoneBadge" class="floor-zone zone-main">Innenbereich</div>
+                        <div id="tablesGrid" class="tables-layer"></div>
+                    </div>
+                    <div class="floor-help">
+                        <strong data-i18n="touch_hint">Touch-Modus</strong>
+                        <span data-i18n="drag_hint">Tisch halten und ziehen. Tippen öffnet die Kasse. Löschen geht nur ohne offene Bestellung.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="ordersScreen" class="screen">
+            <div class="section-header">
+                <div>
+                    <h2 data-i18n="orders">Bestellungen</h2>
+                    <p data-i18n="orders_hint">Offene, bezahlte und stornierte Bestellungen verwalten</p>
+                </div>
+                <select id="orderStatusFilter" onchange="loadOrders()">
+                    <option value="" data-i18n="all_orders">Alle Bestellungen</option>
+                    <option value="open" data-i18n="open_orders">Offen</option>
+                    <option value="paid" data-i18n="paid_orders">Bezahlt</option>
+                    <option value="cancelled" data-i18n="cancelled_orders">Storniert</option>
+                </select>
+            </div>
+            <div id="ordersList" class="orders-list"></div>
+        </section>
+
+        <section id="reportsScreen" class="screen">
+            <div class="section-header">
+                <div>
+                    <h2 data-i18n="reports">Berichte</h2>
+                    <p data-i18n="reports_hint">Tagesumsatz fuer das gewaehlte Datum</p>
+                </div>
+                <div class="report-actions">
+                    <input id="reportDate" type="date" onchange="loadReports()">
+                    <button class="secondary-button" onclick="loadReports()" data-i18n="refresh">Aktualisieren</button>
+                </div>
+            </div>
+            <div id="reportCards" class="report-cards"></div>
+            <div class="products-section report-table-wrap">
+                <h3 data-i18n="top_products">Top Produkte</h3>
+                <div id="topProducts"></div>
+            </div>
         </section>
     </main>
 </div>

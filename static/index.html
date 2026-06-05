@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DARKONIQ POS</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=mobile-admin-2">
 </head>
 <body>
 <section id="loginScreen" class="login-screen">
@@ -45,6 +45,14 @@
                 <h2 id="screenTitle" data-i18n="cash_register">Kasse</h2>
                 <p data-i18n="test_version">Testversion / Nicht fiskalisch</p>
             </div>
+            <nav class="mobile-admin-nav admin-only" aria-label="Admin mobile navigation">
+                <button class="mobile-admin-button active" data-mobile-screen="pos" type="button" onclick="showScreen('pos', document.querySelector('[data-title=&quot;cash_register&quot;]'))">Kasse</button>
+                <button class="mobile-admin-button" data-mobile-screen="tables" type="button" onclick="showScreen('tables', document.querySelector('[data-title=&quot;tables&quot;]'))">Tische</button>
+                <button class="mobile-admin-button" data-mobile-screen="orders" type="button" onclick="showScreen('orders', document.querySelector('[data-title=&quot;orders&quot;]'))">Bestellungen</button>
+                <button class="mobile-admin-button" data-mobile-screen="reports" type="button" onclick="showScreen('reports', document.querySelector('[data-title=&quot;reports&quot;]'))">Berichte</button>
+                <button class="mobile-admin-button" data-mobile-screen="users" type="button" onclick="showScreen('users', document.querySelector('[data-title=&quot;users&quot;]'))">Benutzer</button>
+                <button class="mobile-admin-button logout-mobile-button" type="button" onclick="logout()">Logout</button>
+            </nav>
 
         </header>
 
@@ -121,8 +129,8 @@
             <div class="floor-shell">
                 <div class="floor-board">
                     <div class="zone-switcher">
-                        <button class="zone-tab active" onclick="switchTableZone('Innenbereich', this)" data-i18n="inside">Innenbereich</button>
-                        <button class="zone-tab" onclick="switchTableZone('Terrasse', this)" data-i18n="terrace">Terrasse</button>
+                        <button class="zone-tab active" data-table-zone="Innenbereich" onclick="switchTableZone('Innenbereich')" data-i18n="inside">Innenbereich</button>
+                        <button class="zone-tab" data-table-zone="Terrasse" onclick="switchTableZone('Terrasse')" data-i18n="terrace">Terrasse</button>
                     </div>
                     <div class="floor-board-header">
                         <div>
@@ -140,6 +148,16 @@
                         <span data-i18n="drag_hint">Tisch halten und ziehen. Tippen öffnet die Kasse. Löschen geht nur ohne offene Bestellung.</span>
                     </div>
                 </div>
+                <aside class="table-manager-panel admin-only">
+                    <div class="table-manager-header">
+                        <div>
+                            <strong data-i18n="table_manager">Tische verwalten</strong>
+                            <span data-i18n="table_manager_hint">Antippen zeigt den Tisch auf der Karte</span>
+                        </div>
+                        <em id="tableManagerCount">0</em>
+                    </div>
+                    <div id="tableManagerList" class="table-manager-list"></div>
+                </aside>
             </div>
         </section>
 
@@ -258,6 +276,6 @@
     <button class="mobile-nav-button" onclick="logout()">Logout</button>
 </nav>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=mobile-admin-2"></script>
 </body>
 </html>

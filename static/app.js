@@ -132,6 +132,10 @@ const translations = {
         delete_table: "Löschen",
         delete_confirm: "Diesen Tisch löschen?",
         delete_blocked: "Tisch kann nicht gelöscht werden: Es gibt offene Bestellungen.",
+        table_manager: "Tische verwalten",
+        table_manager_hint: "Antippen zeigt den Tisch auf der Karte",
+        show_on_plan: "Anzeigen",
+        no_tables_in_zone: "Keine Tische in diesem Bereich",
         seats: "Personen",
         zone: "Bereich",
         inside: "Innenbereich",
@@ -215,8 +219,12 @@ async function authFetch(path, options = {}) {
     return response;
 }
 
+function getCurrentRole() {
+    return String(currentUser?.role || "").trim().toLowerCase();
+}
+
 function isAdmin() {
-    return currentUser?.role === "admin";
+    return getCurrentRole() === "admin";
 }
 
 function clearSession() {
@@ -280,7 +288,7 @@ async function logout() {
 }
 
 function applyRoleAccess() {
-    document.body.dataset.role = currentUser?.role || "";
+    document.body.dataset.role = getCurrentRole();
     document.querySelectorAll(".admin-only").forEach(element => {
         element.classList.toggle("hidden", !isAdmin());
     });
@@ -801,6 +809,7 @@ async function loadTables() {
 
     buildTableSelect();
     renderTables();
+    renderTableManager();
     syncActiveTableUi();
     renderQuickTables();
 }
@@ -891,6 +900,21 @@ function renderLiveTablesOverview() {
         `).join("");
 }
 
+function tableCoordinate(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0, number) : fallback;
+}
+
+function syncFloorLayerHeight(layer, floorPlan, tables) {
+    if (!layer || !floorPlan) return 0;
+
+    const baseHeight = floorPlan.clientHeight || 680;
+    const maxY = tables.reduce((max, table) => Math.max(max, tableCoordinate(table.y)), 0);
+    const neededHeight = Math.max(baseHeight, Math.round((maxY / 100) * baseHeight + 150));
+    layer.style.height = `${neededHeight}px`;
+    return baseHeight;
+}
+
 function renderTables() {
     const layer = document.getElementById("tablesGrid");
     const floorPlan = document.getElementById("floorPlan");
@@ -906,6 +930,7 @@ function renderTables() {
     if (activeZoneBadge) activeZoneBadge.textContent = currentTableZone === "Terrasse" ? t("terrace") : t("inside");
 
     const visibleTables = restaurantTables.filter(table => table.zone === currentTableZone);
+    const baseHeight = syncFloorLayerHeight(layer, floorPlan, visibleTables) || 680;
 
     visibleTables.forEach(table => {
 
@@ -913,9 +938,10 @@ function renderTables() {
         card.className = `floor-table ${table.status}`;
         card.setAttribute("role", "button");
         card.tabIndex = 0;
-        card.style.left = `${table.x}%`;
-        card.style.top = `${table.y}%`;
+        card.style.left = `${Math.min(tableCoordinate(table.x), 100)}%`;
+        card.style.top = `${(tableCoordinate(table.y) / 100) * baseHeight}px`;
         card.dataset.tableId = String(table.id);
+        card.dataset.tableNumber = String(table.table_number);
         card.innerHTML = `
             <button class="delete-table-button admin-only" type="button" title="${t("delete_table")}">×</button>
             <span class="table-status-dot"></span>
@@ -938,11 +964,67 @@ function renderTables() {
     });
 }
 
-function switchTableZone(zone, button) {
+function renderTableManager() {
+    const list = document.getElementById("tableManagerList");
+    const count = document.getElementById("tableManagerCount");
+    if (!list) return;
+
+    const zoneTables = restaurantTables
+        .filter(table => table.zone === currentTableZone)
+        .sort((a, b) => a.table_number - b.table_number);
+
+    if (count) count.textContent = String(zoneTables.length);
+
+    if (zoneTables.length === 0) {
+        setMessage(list, t("no_tables_in_zone"));
+        return;
+    }
+
+    list.innerHTML = zoneTables.map(table => `
+        <div class="table-manager-row ${table.status}">
+            <button class="table-manager-focus" type="button" onclick="focusTableOnPlan(${table.id})">
+                <strong>${t("table")} ${table.table_number}</strong>
+                <span>${table.seats} ${t("seats")} · ${t(table.status)} · y ${Number(table.y).toFixed(0)}</span>
+            </button>
+            <button class="delete-table-button list-delete-button" type="button" onclick="deleteTableById(${table.id})" title="${t("delete_table")}">×</button>
+        </div>
+    `).join("");
+}
+
+function syncTableZoneButtons() {
+    document.querySelectorAll(".zone-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.tableZone === currentTableZone);
+    });
+}
+
+function focusTableOnPlan(tableId) {
+    const table = restaurantTables.find(item => item.id === tableId);
+    if (!table) return;
+
+    if (table.zone !== currentTableZone) {
+        currentTableZone = table.zone;
+        syncTableZoneButtons();
+        renderTables();
+        renderTableManager();
+    }
+
+    const floorPlan = document.getElementById("floorPlan");
+    const card = document.querySelector(`.floor-table[data-table-id="${tableId}"]`);
+    if (!floorPlan || !card) return;
+
+    floorPlan.scrollTo({
+        top: Math.max(0, card.offsetTop - 24),
+        behavior: "smooth"
+    });
+    card.classList.add("spotlight");
+    window.setTimeout(() => card.classList.remove("spotlight"), 1200);
+}
+
+function switchTableZone(zone) {
     currentTableZone = zone;
-    document.querySelectorAll(".zone-tab").forEach(tab => tab.classList.remove("active"));
-    if (button) button.classList.add("active");
+    syncTableZoneButtons();
     renderTables();
+    renderTableManager();
 }
 
 async function createTable(zone = currentTableZone) {
@@ -959,9 +1041,16 @@ async function createTable(zone = currentTableZone) {
         restaurantTables.push(table);
         buildTableSelect();
         renderTables();
+        renderTableManager();
+        focusTableOnPlan(table.id);
     } catch (error) {
         alert(t("api_unavailable"));
     }
+}
+
+function deleteTableById(tableId) {
+    const table = restaurantTables.find(item => item.id === tableId);
+    if (table) deleteTable(table);
 }
 
 async function deleteTable(table) {
@@ -984,6 +1073,7 @@ async function deleteTable(table) {
         restaurantTables = restaurantTables.filter(item => item.id !== table.id);
         buildTableSelect();
         renderTables();
+        renderTableManager();
     } catch (error) {
         alert(t("api_unavailable"));
     }
@@ -1021,24 +1111,26 @@ function moveTableDrag(event) {
     const floorPlan = tableElement.closest(".floor-plan");
     if (!floorPlan) return;
     const floorRect = floorPlan.getBoundingClientRect();
+    const baseWidth = floorRect.width || 1;
+    const baseHeight = floorPlan.clientHeight || floorRect.height || 1;
     const tableWidth = tableElement.offsetWidth;
     const tableHeight = tableElement.offsetHeight;
 
     const xPx = event.clientX - floorRect.left - activeTableDrag.offsetX;
-    const yPx = event.clientY - floorRect.top - activeTableDrag.offsetY;
-    const maxX = floorRect.width - tableWidth;
-    const maxY = floorRect.height - tableHeight;
+    const yPx = event.clientY - floorRect.top - activeTableDrag.offsetY + floorPlan.scrollTop;
+    const maxX = Math.max(0, baseWidth - tableWidth);
+    const maxY = Math.max(0, floorPlan.scrollHeight - tableHeight);
     const clampedX = Math.min(Math.max(xPx, 0), maxX);
     const clampedY = Math.min(Math.max(yPx, 0), maxY);
-    const nextX = (clampedX / floorRect.width) * 100;
-    const nextY = (clampedY / floorRect.height) * 100;
+    const nextX = (clampedX / baseWidth) * 100;
+    const nextY = (clampedY / baseHeight) * 100;
 
     if (Math.abs(event.clientX - activeTableDrag.startX) > 4 || Math.abs(event.clientY - activeTableDrag.startY) > 4) {
         activeTableDrag.moved = true;
     }
 
     tableElement.style.left = `${nextX}%`;
-    tableElement.style.top = `${nextY}%`;
+    tableElement.style.top = `${clampedY}px`;
 
     const table = restaurantTables.find(item => item.id === activeTableDrag.id);
     if (table) {
@@ -1290,9 +1382,8 @@ function showScreen(screenName, button) {
 
     document.querySelectorAll(".nav-button").forEach(navButton => navButton.classList.remove("active"));
     if (button) button.classList.add("active");
-    document.querySelectorAll(".mobile-nav-button").forEach(navButton => navButton.classList.remove("active"));
-    const mobileButton = document.querySelector(`[data-mobile-screen="${screenName}"]`);
-    if (mobileButton) mobileButton.classList.add("active");
+    document.querySelectorAll(".mobile-nav-button, .mobile-admin-button").forEach(navButton => navButton.classList.remove("active"));
+    document.querySelectorAll(`[data-mobile-screen="${screenName}"]`).forEach(navButton => navButton.classList.add("active"));
 
     document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active-screen"));
     document.getElementById(`${screenName}Screen`).classList.add("active-screen");

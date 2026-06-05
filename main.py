@@ -24,6 +24,13 @@ RECEIPTS_DIR = "receipts"
 TABLE_COUNT = 12
 ORDER_STATUSES = {"open", "paid", "cancelled"}
 ROLES = {"admin", "waiter"}
+TABLE_LAYOUT_COLUMNS = 4
+TABLE_LAYOUT_X_START = 12
+TABLE_LAYOUT_Y_START = 12
+TABLE_LAYOUT_X_STEP = 18
+TABLE_LAYOUT_Y_STEP = 20
+TABLE_LAYOUT_COLLISION_X = 14
+TABLE_LAYOUT_COLLISION_Y = 18
 
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 
@@ -36,6 +43,34 @@ def get_connection():
 
 def hash_password(password: str):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def get_table_layout_position(table_index: int):
+    column = table_index % TABLE_LAYOUT_COLUMNS
+    row = table_index // TABLE_LAYOUT_COLUMNS
+    return (
+        TABLE_LAYOUT_X_START + column * TABLE_LAYOUT_X_STEP,
+        TABLE_LAYOUT_Y_START + row * TABLE_LAYOUT_Y_STEP,
+    )
+
+
+def is_table_layout_position_free(x: float, y: float, existing_tables):
+    for table in existing_tables:
+        existing_x = float(table["x"])
+        existing_y = float(table["y"])
+        if abs(existing_x - x) < TABLE_LAYOUT_COLLISION_X and abs(existing_y - y) < TABLE_LAYOUT_COLLISION_Y:
+            return False
+
+    return True
+
+
+def get_next_table_layout_position(existing_tables):
+    table_index = 0
+    while True:
+        x, y = get_table_layout_position(table_index)
+        if is_table_layout_position_free(x, y, existing_tables):
+            return x, y
+        table_index += 1
 
 
 def init_db():
@@ -258,7 +293,7 @@ class CreateTableRequest(BaseModel):
 
 class UpdateTableRequest(BaseModel):
     x: float | None = Field(default=None, ge=0, le=100)
-    y: float | None = Field(default=None, ge=0, le=100)
+    y: float | None = Field(default=None, ge=0)
     seats: int | None = Field(default=None, ge=1, le=20)
     zone: str | None = Field(default=None, min_length=1)
 
@@ -620,8 +655,11 @@ def create_table(table: CreateTableRequest, user: dict = Depends(require_admin))
     cursor.execute("SELECT COALESCE(MAX(table_number), 0) + 1 FROM restaurant_tables")
     table_number = cursor.fetchone()[0]
 
-    x = 12 + ((table_number - 1) % 4) * 18
-    y = 12 + ((table_number - 1) // 4) * 20
+    cursor.execute(
+        "SELECT x, y FROM restaurant_tables WHERE zone = ?",
+        (table.zone,)
+    )
+    x, y = get_next_table_layout_position(cursor.fetchall())
 
     cursor.execute(
         """
@@ -646,6 +684,7 @@ def create_table(table: CreateTableRequest, user: dict = Depends(require_admin))
         "status": "free",
         "open_orders": 0,
         "total": 0,
+        "first_order_at": None,
     }
 
 

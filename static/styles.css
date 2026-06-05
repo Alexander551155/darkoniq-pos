@@ -196,6 +196,10 @@ button {
     color: var(--muted);
 }
 
+.mobile-admin-nav {
+    display: none;
+}
+
 .top-actions,
 .report-actions,
 .table-toolbar {
@@ -770,7 +774,10 @@ button {
 }
 
 .floor-shell {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: 16px;
     padding: 16px;
 }
 
@@ -835,13 +842,13 @@ button {
     min-height: 680px;
     height: calc(100vh - 255px);
     border-radius: 26px;
-    overflow: hidden;
+    overflow: auto;
     background:
         linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px) 0 0 / 34px 34px,
         linear-gradient(0deg, rgba(255,255,255,0.15) 1px, transparent 1px) 0 0 / 34px 34px,
         linear-gradient(135deg, #b99168, #d6b98f 45%, #9d744d);
     border: 1px solid rgba(77, 53, 31, 0.15);
-    touch-action: none;
+    touch-action: pan-y;
 }
 
 .terrace-plan {
@@ -883,8 +890,8 @@ button {
 }
 
 .tables-layer {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    min-height: 100%;
     z-index: 2;
 }
 
@@ -954,6 +961,13 @@ body[data-role="waiter"] .floor-table {
     z-index: 5;
 }
 
+.floor-table.spotlight {
+    animation: tableSpotlight 1.2s ease;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.22), 0 18px 34px rgba(51, 36, 23, 0.2);
+    z-index: 6;
+}
+
 .table-status-dot {
     width: 10px;
     height: 10px;
@@ -980,6 +994,120 @@ body[data-role="waiter"] .floor-table {
 .floor-help span {
     color: #a8b5ae;
     line-height: 1.45;
+}
+
+.table-manager-panel {
+    position: sticky;
+    top: 96px;
+    border-radius: 24px;
+    padding: 14px;
+    background: #f8faf7;
+    border: 1px solid rgba(226, 232, 228, 0.95);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+.table-manager-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.table-manager-header div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.table-manager-header strong {
+    font-size: 17px;
+}
+
+.table-manager-header span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.table-manager-header em {
+    min-width: 36px;
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: var(--green-2);
+    color: white;
+    font-style: normal;
+    font-weight: 900;
+    text-align: center;
+}
+
+.table-manager-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: calc(100vh - 210px);
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.table-manager-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 8px;
+    align-items: stretch;
+    padding: 8px;
+    border-radius: 18px;
+    background: white;
+    border: 1px solid rgba(226, 232, 228, 0.9);
+}
+
+.table-manager-row.busy {
+    border-color: rgba(239, 68, 68, 0.28);
+    background: #fff7f7;
+}
+
+.table-manager-focus {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    min-width: 0;
+}
+
+.table-manager-focus strong {
+    font-size: 15px;
+}
+
+.table-manager-focus span {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-delete-button {
+    position: static;
+    width: 34px;
+    height: auto;
+    min-height: 34px;
+}
+
+@keyframes tableSpotlight {
+    0% {
+        transform: scale(1);
+    }
+    35% {
+        transform: scale(1.08);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 .report-cards {
@@ -1084,6 +1212,18 @@ body[data-role="waiter"] .floor-table {
 @media (max-width: 1200px) {
     .products-grid {
         grid-template-columns: repeat(3, 1fr);
+    }
+
+    .floor-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .table-manager-panel {
+        position: static;
+    }
+
+    .table-manager-list {
+        max-height: 340px;
     }
 
     .service-panel {
@@ -1213,6 +1353,10 @@ body[data-role="waiter"] .floor-table {
         padding-bottom: calc(82px + env(safe-area-inset-bottom));
     }
 
+    body[data-role="admin"] {
+        padding-bottom: calc(132px + env(safe-area-inset-bottom));
+    }
+
     .login-card {
         border-radius: 24px;
         padding: 22px;
@@ -1232,6 +1376,10 @@ body[data-role="waiter"] .floor-table {
         padding: 12px 12px calc(106px + env(safe-area-inset-bottom));
     }
 
+    body[data-role="admin"] .main {
+        padding-bottom: calc(150px + env(safe-area-inset-bottom));
+    }
+
     .topbar {
         position: sticky;
         top: 0;
@@ -1244,6 +1392,40 @@ body[data-role="waiter"] .floor-table {
         box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
         flex-direction: row;
         align-items: center;
+    }
+
+    body[data-role="admin"] .topbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    body[data-role="admin"] .mobile-admin-nav {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-top: 10px;
+    }
+
+    .mobile-admin-button {
+        min-height: 40px;
+        border: none;
+        border-radius: 14px;
+        padding: 8px 6px;
+        background: #e9f1ed;
+        color: #52615a;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .mobile-admin-button.active {
+        background: var(--green-2);
+        color: white;
+    }
+
+    .logout-mobile-button {
+        background: #fee2e2;
+        color: #991b1b;
     }
 
     .topbar h2 {
@@ -1278,6 +1460,10 @@ body[data-role="waiter"] .floor-table {
         padding: 8px 0 10px;
         background: rgba(243, 246, 244, 0.95);
         backdrop-filter: blur(16px);
+    }
+
+    body[data-role="admin"] .service-panel {
+        top: 142px;
     }
 
     .service-status-card {
@@ -1517,6 +1703,10 @@ body[data-role="waiter"] .floor-table {
         display: none;
     }
 
+    body[data-role="admin"] .mobile-cart-button {
+        bottom: calc(122px + env(safe-area-inset-bottom));
+    }
+
     .mobile-cart-button span {
         display: grid;
         place-items: center;
@@ -1555,6 +1745,14 @@ body[data-role="waiter"] .floor-table {
         backdrop-filter: blur(18px);
     }
 
+    body[data-role="admin"] .mobile-nav {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    body[data-role="admin"] .mobile-nav-button {
+        min-height: 42px;
+    }
+
     body[data-role="waiter"] .mobile-nav {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -1574,6 +1772,14 @@ body[data-role="waiter"] .floor-table {
 
     .floor-shell {
         margin: 0 -2px;
+    }
+
+    .table-manager-panel {
+        border-radius: 22px;
+    }
+
+    .table-manager-list {
+        max-height: min(48svh, 420px);
     }
 
     .zone-switcher {
@@ -1634,9 +1840,26 @@ body[data-role="waiter"] .floor-table {
         gap: 10px;
     }
 
+    .report-table-wrap {
+        overflow-x: auto;
+    }
+
+    .report-table {
+        min-width: 520px;
+    }
+
     .order-card {
         border-radius: 18px;
         padding: 14px;
+    }
+
+    .order-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .order-actions button {
+        flex: 1 1 110px;
     }
 
     .modifier-modal {
@@ -1765,10 +1988,6 @@ body[data-role="waiter"] .floor-table {
 }
 
 @media (max-width: 760px) {
-    body:not([data-role="waiter"]) .mobile-nav {
-        grid-template-columns: repeat(6, 1fr);
-    }
-
     .users-layout {
         grid-template-columns: 1fr;
     }

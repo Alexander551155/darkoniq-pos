@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime, date
 import sqlite3
 import os
+import hashlib
+import secrets
 
 app = FastAPI(title="DARKONIQ POS")
 
@@ -21,6 +23,7 @@ DB_NAME = "darkoniq.db"
 RECEIPTS_DIR = "receipts"
 TABLE_COUNT = 12
 ORDER_STATUSES = {"open", "paid", "cancelled"}
+ROLES = {"admin", "waiter"}
 
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 
@@ -29,6 +32,10 @@ def get_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def hash_password(password: str):
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def init_db():
@@ -73,6 +80,25 @@ def init_db():
             x REAL NOT NULL,
             y REAL NOT NULL,
             zone TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL,
+            display_name TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
 
@@ -126,6 +152,22 @@ def init_db():
             default_tables
         )
 
+    seed_users = [
+        ("admin", "admin123", "admin", "Admin"),
+        ("waiter", "waiter123", "waiter", "Service"),
+    ]
+    for username, password, role, display_name in seed_users:
+        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            continue
+        cursor.execute(
+            """
+            INSERT INTO users (username, password_hash, role, display_name)
+            VALUES (?, ?, ?, ?)
+            """,
+            (username, hash_password(password), role, display_name)
+        )
+
     conn.commit()
     conn.close()
 
@@ -145,6 +187,11 @@ class UpdateOrderStatusRequest(BaseModel):
     status: str
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
 class CreateTableRequest(BaseModel):
     seats: int = Field(default=2, ge=1, le=20)
     zone: str = Field(default="Innenbereich", min_length=1)
@@ -157,6 +204,34 @@ class UpdateTableRequest(BaseModel):
     zone: str | None = Field(default=None, min_length=1)
 
 
+def get_current_user(authorization: str | None = Header(default=None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.username, u.role, u.display_name
+        FROM sessions s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.token = ?
+    """, (token,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid session")
+
+    return dict(user)
+
+
+def require_admin(user: dict = Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return user
+
+
 @app.on_event("startup")
 def startup():
     init_db()
@@ -167,8 +242,61 @@ def index():
     return FileResponse("static/index.html")
 
 
+@app.post("/api/login")
+def login(request: LoginRequest):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, username, password_hash, role, display_name
+        FROM users
+        WHERE username = ?
+    """, (request.username,))
+    user = cursor.fetchone()
+
+    if not user or user["password_hash"] != hash_password(request.password):
+        conn.close()
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = secrets.token_urlsafe(32)
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
+        (token, user["id"], created_at)
+    )
+    conn.commit()
+    conn.close()
+
+    return {
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "role": user["role"],
+            "display_name": user["display_name"],
+        }
+    }
+
+
+@app.get("/api/me")
+def me(user: dict = Depends(get_current_user)):
+    return user
+
+
+@app.post("/api/logout")
+def logout(authorization: str | None = Header(default=None)):
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.commit()
+        conn.close()
+
+    return {"message": "Logged out"}
+
+
 @app.get("/api/products")
-def get_products():
+def get_products(user: dict = Depends(get_current_user)):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -204,7 +332,7 @@ def fetch_order(cursor, order_id: int):
 
 
 @app.post("/api/orders")
-def create_order(order: CreateOrderRequest):
+def create_order(order: CreateOrderRequest, user: dict = Depends(get_current_user)):
     total = round(sum(item.quantity * item.price for item in order.items), 2)
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -236,7 +364,11 @@ def create_order(order: CreateOrderRequest):
 
 
 @app.get("/api/orders")
-def get_orders(status: str | None = None, table_number: int | None = None):
+def get_orders(
+    status: str | None = None,
+    table_number: int | None = None,
+    user: dict = Depends(get_current_user),
+):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -270,7 +402,11 @@ def get_orders(status: str | None = None, table_number: int | None = None):
 
 
 @app.patch("/api/orders/{order_id}/status")
-def update_order_status(order_id: int, request: UpdateOrderStatusRequest):
+def update_order_status(
+    order_id: int,
+    request: UpdateOrderStatusRequest,
+    user: dict = Depends(require_admin),
+):
     if request.status not in ORDER_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid status")
 
@@ -294,7 +430,7 @@ def update_order_status(order_id: int, request: UpdateOrderStatusRequest):
 
 
 @app.get("/api/tables")
-def get_tables():
+def get_tables(user: dict = Depends(get_current_user)):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -333,7 +469,7 @@ def get_tables():
 
 
 @app.post("/api/tables")
-def create_table(table: CreateTableRequest):
+def create_table(table: CreateTableRequest, user: dict = Depends(require_admin)):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -370,7 +506,11 @@ def create_table(table: CreateTableRequest):
 
 
 @app.patch("/api/tables/{table_id}")
-def update_table(table_id: int, table: UpdateTableRequest):
+def update_table(
+    table_id: int,
+    table: UpdateTableRequest,
+    user: dict = Depends(require_admin),
+):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -408,7 +548,7 @@ def update_table(table_id: int, table: UpdateTableRequest):
 
 
 @app.delete("/api/tables/{table_id}")
-def delete_table(table_id: int):
+def delete_table(table_id: int, user: dict = Depends(require_admin)):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -438,7 +578,7 @@ def delete_table(table_id: int):
 
 
 @app.get("/api/reports/summary")
-def get_reports_summary(day: str | None = None):
+def get_reports_summary(day: str | None = None, user: dict = Depends(require_admin)):
     report_day = day or date.today().strftime("%Y-%m-%d")
 
     conn = get_connection()
@@ -498,7 +638,7 @@ def get_reports_summary(day: str | None = None):
 
 
 @app.post("/api/orders/{order_id}/print")
-def print_receipt(order_id: int):
+def print_receipt(order_id: int, user: dict = Depends(get_current_user)):
     conn = get_connection()
     cursor = conn.cursor()
     order = fetch_order(cursor, order_id)

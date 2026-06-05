@@ -7,6 +7,8 @@ let currentTableZone = "Innenbereich";
 let restaurantTables = [];
 let activeTableDrag = null;
 let suppressTableClickUntil = 0;
+let authToken = localStorage.getItem("darkoniq_token") || "";
+let currentUser = JSON.parse(localStorage.getItem("darkoniq_user") || "null");
 
 const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:8000" : "";
 
@@ -102,6 +104,100 @@ function apiUrl(path) {
     return `${API_BASE}${path}`;
 }
 
+async function authFetch(path, options = {}) {
+    const headers = {
+        ...(options.headers || {}),
+        ...(authToken ? {Authorization: `Bearer ${authToken}`} : {})
+    };
+
+    const response = await fetch(apiUrl(path), {
+        ...options,
+        headers
+    });
+
+    if (response.status === 401) {
+        clearSession();
+        showLogin();
+    }
+
+    return response;
+}
+
+function isAdmin() {
+    return currentUser?.role === "admin";
+}
+
+function clearSession() {
+    authToken = "";
+    currentUser = null;
+    localStorage.removeItem("darkoniq_token");
+    localStorage.removeItem("darkoniq_user");
+}
+
+function showLogin(message = "") {
+    document.getElementById("loginScreen").classList.remove("hidden");
+    document.querySelector(".app").classList.add("app-locked");
+    document.getElementById("loginError").textContent = message;
+}
+
+function hideLogin() {
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.querySelector(".app").classList.remove("app-locked");
+}
+
+async function login(event) {
+    event.preventDefault();
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const loginError = document.getElementById("loginError");
+    loginError.textContent = "";
+
+    try {
+        const response = await fetch(apiUrl("/api/login"), {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username, password})
+        });
+
+        if (!response.ok) {
+            loginError.textContent = "Login fehlgeschlagen.";
+            return;
+        }
+
+        const result = await response.json();
+        authToken = result.token;
+        currentUser = result.user;
+        localStorage.setItem("darkoniq_token", authToken);
+        localStorage.setItem("darkoniq_user", JSON.stringify(currentUser));
+        await startApp();
+    } catch (error) {
+        loginError.textContent = "Server nicht erreichbar.";
+    }
+}
+
+async function logout() {
+    if (authToken) {
+        try {
+            await authFetch("/api/logout", {method: "POST"});
+        } catch (error) {
+            // Local logout still matters if the network is unavailable.
+        }
+    }
+    clearSession();
+    showLogin();
+}
+
+function applyRoleAccess() {
+    document.body.dataset.role = currentUser?.role || "";
+    document.querySelectorAll(".admin-only").forEach(element => {
+        element.classList.toggle("hidden", !isAdmin());
+    });
+
+    if (!isAdmin() && (currentScreen === "orders" || currentScreen === "reports")) {
+        showScreen("pos", document.querySelector('[data-title="cash_register"]'));
+    }
+}
+
 function applyLanguage() {
 
     document.querySelectorAll("[data-i18n]").forEach(element => {
@@ -144,7 +240,7 @@ async function loadProducts() {
     const productsDiv = document.getElementById("products");
 
     try {
-        const response = await fetch(apiUrl("/api/products"));
+        const response = await authFetch("/api/products");
         if (!response.ok) throw new Error("Products API failed");
         products = await response.json();
     } catch (error) {
@@ -282,7 +378,7 @@ async function saveOrder() {
     const tableNumber = Number(document.getElementById("tableSelect").value);
     let response;
     try {
-        response = await fetch(apiUrl("/api/orders"), {
+        response = await authFetch("/api/orders", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
@@ -310,7 +406,7 @@ async function saveOrder() {
 async function printOrder(orderId) {
     let response;
     try {
-        response = await fetch(apiUrl(`/api/orders/${orderId}/print`), {method: "POST"});
+        response = await authFetch(`/api/orders/${orderId}/print`, {method: "POST"});
     } catch (error) {
         alert(t("print_error"));
         return;
@@ -338,7 +434,7 @@ async function printLastOrder() {
 async function updateOrderStatus(orderId, status) {
     let response;
     try {
-        response = await fetch(apiUrl(`/api/orders/${orderId}/status`), {
+        response = await authFetch(`/api/orders/${orderId}/status`, {
             method: "PATCH",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({status})
@@ -360,7 +456,7 @@ async function loadOrders() {
 
     let orders = [];
     try {
-        const response = await fetch(apiUrl(url));
+        const response = await authFetch(url);
         if (!response.ok) throw new Error("Orders API failed");
         orders = await response.json();
     } catch (error) {
@@ -413,7 +509,7 @@ async function loadTables() {
     if (!tablesGrid) return;
 
     try {
-        const response = await fetch(apiUrl("/api/tables"));
+        const response = await authFetch("/api/tables");
         if (!response.ok) throw new Error("Tables API failed");
         restaurantTables = await response.json();
     } catch (error) {
@@ -451,18 +547,22 @@ function renderTables() {
         card.style.top = `${table.y}%`;
         card.dataset.tableId = String(table.id);
         card.innerHTML = `
-            <button class="delete-table-button" type="button" title="${t("delete_table")}">×</button>
+            <button class="delete-table-button admin-only" type="button" title="${t("delete_table")}">×</button>
             <span class="table-status-dot"></span>
             <strong>${t("table")} ${table.table_number}</strong>
             <small>${table.seats} ${t("seats")} · ${table.zone}</small>
             <em>${t(table.status)} · ${money(table.total)}</em>
         `;
-        card.querySelector(".delete-table-button").addEventListener("pointerdown", event => event.stopPropagation());
-        card.querySelector(".delete-table-button").addEventListener("click", event => {
+        const deleteButton = card.querySelector(".delete-table-button");
+        deleteButton.classList.toggle("hidden", !isAdmin());
+        deleteButton.addEventListener("pointerdown", event => event.stopPropagation());
+        deleteButton.addEventListener("click", event => {
             event.stopPropagation();
             deleteTable(table);
         });
-        card.addEventListener("pointerdown", event => startTableDrag(event, table));
+        if (isAdmin()) {
+            card.addEventListener("pointerdown", event => startTableDrag(event, table));
+        }
         card.addEventListener("click", event => openTableFromPlan(event, table));
         layer.appendChild(card);
     });
@@ -476,8 +576,10 @@ function switchTableZone(zone, button) {
 }
 
 async function createTable(zone = currentTableZone) {
+    if (!isAdmin()) return;
+
     try {
-        const response = await fetch(apiUrl("/api/tables"), {
+        const response = await authFetch("/api/tables", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({seats: 2, zone})
@@ -493,10 +595,12 @@ async function createTable(zone = currentTableZone) {
 }
 
 async function deleteTable(table) {
+    if (!isAdmin()) return;
+
     if (!confirm(t("delete_confirm"))) return;
 
     try {
-        const response = await fetch(apiUrl(`/api/tables/${table.id}`), {
+        const response = await authFetch(`/api/tables/${table.id}`, {
             method: "DELETE"
         });
 
@@ -593,7 +697,7 @@ async function endTableDrag(event) {
     if (!table || !moved) return;
 
     try {
-        await fetch(apiUrl(`/api/tables/${table.id}`), {
+        await authFetch(`/api/tables/${table.id}`, {
             method: "PATCH",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({x: table.x, y: table.y})
@@ -621,7 +725,7 @@ async function loadReports() {
 
     let report;
     try {
-        const response = await fetch(apiUrl(`/api/reports/summary?day=${encodeURIComponent(dateInput.value)}`));
+        const response = await authFetch(`/api/reports/summary?day=${encodeURIComponent(dateInput.value)}`);
         if (!response.ok) throw new Error("Reports API failed");
         report = await response.json();
     } catch (error) {
@@ -674,6 +778,11 @@ function updateScreenTitle() {
 }
 
 function showScreen(screenName, button) {
+    if (!isAdmin() && (screenName === "orders" || screenName === "reports")) {
+        screenName = "pos";
+        button = document.querySelector('[data-title="cash_register"]');
+    }
+
     currentScreen = screenName;
 
     document.querySelectorAll(".nav-button").forEach(navButton => navButton.classList.remove("active"));
@@ -689,15 +798,42 @@ function showScreen(screenName, button) {
     if (screenName === "reports") loadReports();
 }
 
-async function init() {
+async function startApp() {
+    hideLogin();
+    applyRoleAccess();
     buildTableSelect();
     const reportDate = document.getElementById("reportDate");
     reportDate.value = new Date().toISOString().slice(0, 10);
 
     await loadProducts();
-    await Promise.allSettled([loadOrders(), loadTables(), loadReports()]);
+    const startupTasks = [loadTables()];
+    if (isAdmin()) {
+        startupTasks.push(loadOrders(), loadReports());
+    }
+    await Promise.allSettled(startupTasks);
     applyLanguage();
+    applyRoleAccess();
     renderCart();
 }
 
-init();
+async function bootstrap() {
+    if (!authToken) {
+        showLogin();
+        return;
+    }
+
+    try {
+        const response = await authFetch("/api/me");
+        if (!response.ok) {
+            showLogin();
+            return;
+        }
+        currentUser = await response.json();
+        localStorage.setItem("darkoniq_user", JSON.stringify(currentUser));
+        await startApp();
+    } catch (error) {
+        showLogin("Server nicht erreichbar.");
+    }
+}
+
+bootstrap();

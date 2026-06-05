@@ -7,6 +7,26 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+<section id="loginScreen" class="login-screen">
+    <form class="login-card" onsubmit="login(event)">
+        <div>
+            <h1>DARKONIQ</h1>
+            <p>Restaurant POS Login</p>
+        </div>
+        <label>
+            Benutzer
+            <input id="loginUsername" type="text" autocomplete="username" value="admin" required>
+        </label>
+        <label>
+            Passwort
+            <input id="loginPassword" type="password" autocomplete="current-password" value="admin123" required>
+        </label>
+        <button class="save-button" type="submit">Einloggen</button>
+        <small>Admin: admin/admin123 · Service: waiter/waiter123</small>
+        <div id="loginError" class="login-error"></div>
+    </form>
+</section>
+
 <div class="app">
     <aside class="sidebar">
         <h1>DARKONIQ</h1>
@@ -14,8 +34,9 @@
 
         <button class="nav-button active" onclick="showScreen('pos', this)" data-title="cash_register" data-i18n="cash_register">Kasse</button>
         <button class="nav-button" onclick="showScreen('tables', this)" data-title="tables" data-i18n="tables">Tische</button>
-        <button class="nav-button" onclick="showScreen('orders', this)" data-title="orders" data-i18n="orders">Bestellungen</button>
-        <button class="nav-button" onclick="showScreen('reports', this)" data-title="reports" data-i18n="reports">Berichte</button>
+        <button class="nav-button admin-only" onclick="showScreen('orders', this)" data-title="orders" data-i18n="orders">Bestellungen</button>
+        <button class="nav-button admin-only" onclick="showScreen('reports', this)" data-title="reports" data-i18n="reports">Berichte</button>
+        <button class="nav-button logout-button" onclick="logout()">Logout</button>
     </aside>
 
     <main class="main">
@@ -76,7 +97,7 @@
                             <strong id="activeZoneTitle" data-i18n="inside">Innenbereich</strong>
                             <span id="activeZoneHint" data-i18n="inside_hint">Hauptraum</span>
                         </div>
-                        <button class="save-button compact" onclick="createTable()" data-i18n="add_table">Tisch hinzufügen</button>
+                        <button class="save-button compact admin-only" onclick="createTable()" data-i18n="add_table">Tisch hinzufügen</button>
                     </div>
                     <div class="floor-plan" id="floorPlan">
                         <div id="activeZoneBadge" class="floor-zone zone-main">Innenbereich</div>
